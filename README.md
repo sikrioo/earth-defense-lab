@@ -9,9 +9,18 @@
 
 ## 실행
 
-`index.html` 하나만 브라우저로 열면 됩니다. 운석·지구 그림은 파일 안에 이미지로 들어 있어서 빌드나 서버가 필요 없어요. 외부에서 불러오는 건 Google Fonts뿐이고, 오프라인이면 기본 글꼴로 대신 그려집니다.
+플레이만 할 때는 **https://sikrioo.github.io/earth-defense-lab/** 에서 바로 하면 돼요. `main`에 푸시하면 GitHub Actions가 자동으로 빌드해서 이 주소에 올립니다.
 
-GitHub Pages를 켜면(Settings → Pages → Branch: `main`) 링크로 바로 플레이할 수 있어요.
+개발할 때 (Node 18 이상):
+
+```sh
+npm install
+npm run dev            # 개발 서버, 저장하면 바로 반영
+npm run build          # dist/ : 사이트용 빌드
+npm run build:single   # dist-single/index.html : 이미지까지 전부 들어간 파일 하나 (오프라인용, 더블클릭으로 열림)
+```
+
+오프라인 파일 하나짜리는 Actions 실행 페이지의 `earth-defense-lab-offline` 아티팩트로도 받을 수 있어요. 외부에서 불러오는 건 Google Fonts뿐이고, 오프라인이면 기본 글꼴로 대신 그려집니다.
 
 ## 조작
 
@@ -56,29 +65,53 @@ GitHub Pages를 켜면(Settings → Pages → Branch: `main`) 링크로 바로 �
 ## 폴더
 
 ```
-index.html          게임 전체 (HTML · CSS · JS · 이미지 한 파일)
-docs/               스크린샷, 스킬 수치표
+index.html            페이지 뼈대 (HUD 마크업)
+assets/               구운 그림: 운석 6종 × 3, 지구 회전 스트립, 지평선, 배경, 먼 잔해
+src/
+  main.js             부팅: 모듈 준비 → 버튼 연결 → 루프 시작
+  style.css
+  data/               밸런스 숫자는 여기만 고치면 됨
+    damage.js           스킬 피해량
+    enemy-types.js      운석 종류별 체력·크기·속도·경험치·지구 피해
+    rings.js            리볼버 링 기본값, 레벨업 한 번당 증가폭, 스타일 랭크
+    loot.js             슬롯 개방 레벨, 등급, 코어, 옵션, 드랍표, 강화 한도
+    world.js            지구 체력, 마나, 도시, 유성우·떠돌이 행성 주기
+  core/               캔버스·시간·화면 흔들림, 파티클, 빛, 번개, 공용 도구
+  world/              지구(그리기·지평선), 자전하는 도시
+  enemies/            운석 생성·이동·피해·그리기, 혜성·분열·임시 운석
+  weapons/            리볼버 링, 레벨업 카드
+  skills/             클래스별 스킬 (index.js가 목록)
+  fx/                 투사체, 공용 폭발 효과
+  loot/               아이템·옵션, 코어 자동 공격, 드랍, 강화
+  game/               루프, 화면 크기, 입력, 레벨·재시작, 이벤트, MAX 시뮬
+  ui/                 HUD 게이지, 슬롯·가방·스킬 창, 기록
 tools/
-  extract.py        index.html에서 스크립트만 뽑아 tools/x.js로 저장
-  harness.js        브라우저 없이 Node로 게임 루프를 돌려보는 스모크 테스트
-  render_assets.py  운석·지구 이미지 베이커 (사실적 버전)
-  render_cel.py     셀 셰이딩 베이커 (지금 게임에 들어간 버전)
+  smoke.py            빌드한 게임을 헤드리스 브라우저로 플레이해보고 스크립트 에러가 있으면 실패
+  legacy-single-file.html  모듈로 나누기 전의 원본 (비교용)
+  render_assets.py    운석·지구 이미지 베이커 (사실적 버전)
+  render_cel.py       셀 셰이딩 베이커 (지금 쓰는 그림)
 ```
 
-테스트:
+**기능 넣고 빼기 예시**
+- 새 운석: `data/enemy-types.js`에 한 줄 + 필요하면 `enemies/painters.js`에 그리는 함수
+- 스킬 클래스 빼기: `skills/index.js`의 `CLASSES`에서 그 항목을 지우면 탭과 단축키에서 사라짐
+- 링 밸런스: `data/rings.js`의 숫자만 수정
+
+**테스트**
 
 ```sh
-python3 tools/extract.py && node --check tools/x.js && node tools/harness.js
+pip install playwright && python3 -m playwright install chromium   # 처음 한 번
+npm run build && npm run smoke
 ```
 
-그림을 다시 굽고 싶으면 `tools/` 안에서 지구 텍스처를 먼저 받아야 해요 (`three-globe` npm 패키지의 예제 이미지 사용):
+**그림 다시 굽기** — `tools/` 안에서 지구 텍스처를 먼저 받아야 해요 (`three-globe` npm 패키지의 예제 이미지 사용):
 
 ```sh
 cd tools && mkdir -p dl_globe && cd dl_globe && npm pack three-globe@2.45.6 && tar xzf three-globe-*.tgz && cd ..
 python3 render_cel.py rocks    # earth | debris | test
 ```
 
-결과는 `tools/out_cel/`에 생기고, 그 데이터 URI를 `index.html`의 `ASSET_SRC`에 넣는 식이에요.
+결과는 `tools/out_cel/`에 생겨요. 지금 베이커는 예전 한 파일 방식대로 데이터 URI를 JSON으로 내놓기 때문에, 새 그림을 넣으려면 그 안의 webp를 `assets/`의 같은 이름 파일로 바꿔 넣으면 됩니다.
 
 ## 출처
 
