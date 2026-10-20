@@ -1,0 +1,8 @@
+# generated / downloaded while baking art or testing
+tools/x.js
+tools/out_assets/
+tools/out_cel/
+tools/dl_*/
+*.tgz
+__pycache__/
+.DS_Store
