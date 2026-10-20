@@ -6,3 +6,7 @@ tools/dl_*/
 *.tgz
 __pycache__/
 .DS_Store
+node_modules/
+dist/
+dist-single/
+tools/shots/

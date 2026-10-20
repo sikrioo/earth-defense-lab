@@ -1,0 +1,17 @@
+{
+  "name": "earth-defense-lab",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:single": "vite build --mode single",
+    "preview": "vite preview",
+    "smoke": "python3 tools/smoke.py"
+  },
+  "devDependencies": {
+    "vite": "5.4.20",
+    "vite-plugin-singlefile": "2.0.3"
+  }
+}
