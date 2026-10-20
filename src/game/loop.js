@@ -53,7 +53,8 @@ function render(){
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.setTransform(RS, 0, 0, RS, RS*shX, RS*shY);
   ctx.globalCompositeOperation = 'lighter';
-  if (lights.length > (MOBILE ? 6 : 40)){ lights.sort((p, q) => q.i - p.i); lights.length = MOBILE ? 6 : 40; }
+  const maxLights = MOBILE ? 6 : 24;   // each light is a big additive blob; keep the brightest
+  if (lights.length > maxLights){ lights.sort((p, q) => q.i - p.i); lights.length = maxLights; }
   for (const L of lights){ ctx.globalAlpha = Math.min(.28, L.i*.14); const r = L.r*.6; ctx.drawImage(softSprite(L.c), L.x - r, L.y - r, r*2, r*2); }
   ctx.globalCompositeOperation = 'source-over';
   drawEarth();

@@ -7,7 +7,7 @@ export const bar = document.querySelector('.bar');
 export const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 export const MOBILE = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, innerHeight) < 600;
 export let Q = MOBILE ? .35 : 1;            // share of cosmetic particles actually emitted
-export let DPR_CAP = MOBILE ? 1 : 2;
+export let DPR_CAP = MOBILE ? 1 : 1.5;        // 2× on a big retina window is 4× the pixels to fill every frame
 export const TAU = Math.PI * 2;
 export const rand = (a, b) => a + Math.random() * (b - a);
 export const lerp = (a, b, t) => a + (b - a) * t;

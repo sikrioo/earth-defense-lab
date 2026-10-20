@@ -11,7 +11,7 @@ import { setup as setupDeck } from './ui/deck.js';
 import { setup as setupHud } from './ui/hud.js';
 import { setup as setupInput } from './game/input.js';
 import { bar } from './core/canvas.js';
-import { mapMode, setMapMode } from './world/earth.js';
+import { invalidateBackdrop, mapMode, setMapMode } from './world/earth.js';
 import { restart } from './game/progress.js';
 import { sprCache } from './enemies/render.js';
 import { setSim, simMax } from './game/sim.js';
@@ -34,7 +34,7 @@ addEventListener('resize', resize);
 document.getElementById('respawn').addEventListener('click', restart);
 document.getElementById('again').addEventListener('click', restart);
 gfxBtn.addEventListener('click', () => {
-  setGFX(GFX === 'asset' ? 'code' : 'asset'); sprCache.clear();
+  setGFX(GFX === 'asset' ? 'code' : 'asset'); sprCache.clear(); invalidateBackdrop();
   gfxBtn.textContent = GFX === 'asset' ? '그래픽: 에셋' : '그래픽: 코드'; creditEl.hidden = GFX !== 'asset';
 });
 document.getElementById('simbtn').addEventListener('click', () => setSim(!simMax));

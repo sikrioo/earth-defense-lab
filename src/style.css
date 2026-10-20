@@ -232,10 +232,8 @@ body{background:var(--void);color:var(--bone);font-family:var(--ui);overflow:hid
 }
 body{background:var(--void)}
 @media (pointer:fine){ #c{filter:sepia(.07) saturate(.96) contrast(1.05)} }
-.grain{position:fixed;inset:-50%;pointer-events:none;z-index:20;opacity:.075;mix-blend-mode:overlay;background-image:var(--grain);background-size:180px 180px;animation:grain .5s steps(4) infinite}
+.grain{position:fixed;inset:0;pointer-events:none;z-index:20;opacity:.075;background-image:var(--grain);background-size:180px 180px}   /* static and unblended: an animated blend layer over the canvas costs a full-screen composite every frame */
 .vignette{position:fixed;inset:0;pointer-events:none;z-index:19;background:radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(8,5,3,.55) 100%)}
-@keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(-3%,2%)}50%{transform:translate(2%,-3%)}75%{transform:translate(-1%,-2%)}}
-@media (prefers-reduced-motion: reduce){ .grain{animation:none} }
 
 /* top HUD */
 .top p{font-family:var(--mono);font-size:11px;letter-spacing:.02em;color:var(--ash)}
@@ -423,7 +421,6 @@ body{background:var(--void)}
 
 /* ===== Poster skin: flat black, bold red & blue blocks, condensed type. Overrides everything above. ===== */
 :root{ --red:#d8392b; --blue:#2f66d8; --off:#f1ece0; --blk:#0a0a0c; --amber:#e8a33d; --cond:'Bebas Neue', 'Oswald', 'Arial Narrow', sans-serif; }
-@media (pointer:fine){ #c{filter:contrast(1.05) saturate(1.02)} }
 .grain{opacity:.05}
 .vignette{background:radial-gradient(ellipse at 50% 42%, transparent 60%, rgba(0,0,0,.5) 100%)}
 .bar{background:var(--blk);border-top:3px solid var(--red);padding:0 0 calc(env(safe-area-inset-bottom,0px) + 10px)}

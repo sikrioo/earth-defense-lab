@@ -1,6 +1,7 @@
 /* ---------- baked art: cel-shaded rocks, Earth (NASA Blue Marble, public domain), sky, far debris ----------
    Files live in /assets. A list entry holds the three size variants of a rock type (name_0..2). */
 import { sprCache } from '../enemies/render.js';
+import { invalidateBackdrop } from '../world/earth.js';
 
 const FILES = import.meta.glob('../../assets/*.webp', { eager: true, import: 'default' });
 const url = name => FILES[`../../assets/${name}.webp`];
@@ -24,7 +25,7 @@ export const ASSET_IMG = {};
 
 export function setup(){
   for (const k in ASSET_SRC){
-    const load = src => { const im = new Image(); im.onload = () => { sprCache.clear(); }; im.src = src; return im; };
+    const load = src => { const im = new Image(); im.onload = () => { sprCache.clear(); invalidateBackdrop(); }; im.src = src; return im; };
     ASSET_IMG[k] = Array.isArray(ASSET_SRC[k]) ? ASSET_SRC[k].map(load) : load(ASSET_SRC[k]);
   }
 }

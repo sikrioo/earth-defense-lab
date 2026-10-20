@@ -52,6 +52,7 @@ function deadPlanet(g, x, y, R, ringed){
 }
 export function buildEarth(){
   const bottom = origin.y;
+  backdrop = null;
   if (mapMode === 'line'){
     earth.R = Math.max(W*.9, 520); earth.top = bottom + 6; earth.cx = W/2; earth.cy = earth.top + earth.R;
     const pad = Math.ceil(Math.max(10, earth.R*.08)) + 8;           // room for the whole atmosphere glow
@@ -103,7 +104,7 @@ export function buildEarth(){
 const farDebris = [];
 function drawFarDebris(){
   if (!farDebris.length){ const r = srng(4242); for (let i = 0; i < (MOBILE ? 9 : 16); i++) farDebris.push({ x:r(), y:r(), s:10 + r()*r()*34, vx:(r() - .5)*.012, vy:.004 + r()*.01, rot:r()*TAU, vr:(r() - .5)*.25, k:(r()*5)|0, a:.45 + r()*.45 }); }
-  const lim = mapMode === 'line' ? earth.top - 10 : H;
+  const lim = mapMode === 'line' ? earth.top - 30 : H;   // drawn over the backdrop, so keep clear of the horizon
   for (const d of farDebris){
     const im = ASSET_IMG.debris[d.k]; if (!im.complete || !im.naturalWidth) continue;
     const x = (((d.x + d.vx*time) % 1) + 1) % 1*(W + 80) - 40, y = (((d.y + d.vy*time) % 1) + 1) % 1*(lim + 60) - 40;
@@ -113,25 +114,37 @@ function drawFarDebris(){
   }
   ctx.globalAlpha = 1;
 }
-export function drawEarth(){
-  if (!earth.img) return;
-  ctx.globalAlpha = 1;
+// everything behind the action that never moves (sky, sun and husks, the globe or horizon) is baked into one
+// screen-sized canvas, so a frame costs one blit instead of several big scaled draws
+let backdrop = null;
+export function invalidateBackdrop(){ backdrop = null; }
+function bakeBackdrop(){
+  const c = document.createElement('canvas'); c.width = Math.ceil(W*RS); c.height = Math.ceil(H*RS);
+  const g = c.getContext('2d'); g.scale(RS, RS);
   const art = GFX === 'asset', ok = im => im && im.complete && im.naturalWidth;
   if (art && ok(ASSET_IMG.stars)){
     const im = ASSET_IMG.stars, sc = Math.max(W/im.naturalWidth, H/im.naturalHeight);
-    ctx.drawImage(im, (W - im.naturalWidth*sc)/2, (H - im.naturalHeight*sc)/2, im.naturalWidth*sc, im.naturalHeight*sc);
+    g.drawImage(im, (W - im.naturalWidth*sc)/2, (H - im.naturalHeight*sc)/2, im.naturalWidth*sc, im.naturalHeight*sc);
   }
-  if (earth.bg) ctx.drawImage(earth.bg, 0, 0, W, H);
-  if (art && ASSET_IMG.debris) drawFarDebris();
+  if (earth.bg) g.drawImage(earth.bg, 0, 0, W, H);
   if (mapMode === 'orbit'){
-    ctx.strokeStyle = 'rgba(180,200,240,.18)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(earth.cx, earth.cy, earth.R*2.2, 0, TAU); ctx.stroke();
+    g.strokeStyle = 'rgba(180,200,240,.18)'; g.lineWidth = 1; g.beginPath(); g.arc(earth.cx, earth.cy, earth.R*2.2, 0, TAU); g.stroke();
   }
-  ctx.drawImage(earth.img.c, earth.img.x, earth.img.y, earth.img.w, earth.img.h);
+  g.drawImage(earth.img.c, earth.img.x, earth.img.y, earth.img.w, earth.img.h);
   if (art && mapMode === 'line' && ok(ASSET_IMG.cap)){
     // baked cap: globe radius 1500px, 2400px wide, top edge = Earth's horizon
     const im = ASSET_IMG.cap, sc = earth.R/1500;
-    ctx.drawImage(im, earth.cx - im.naturalWidth*sc/2, earth.top, im.naturalWidth*sc, im.naturalHeight*sc);
+    g.drawImage(im, earth.cx - im.naturalWidth*sc/2, earth.top, im.naturalWidth*sc, im.naturalHeight*sc);
   }
+  return c;
+}
+export function drawEarth(){
+  if (!earth.img) return;
+  if (!backdrop) backdrop = bakeBackdrop();
+  ctx.globalAlpha = 1;
+  ctx.drawImage(backdrop, 0, 0, W, H);
+  const art = GFX === 'asset', ok = im => im && im.complete && im.naturalWidth;
+  if (art && ASSET_IMG.debris) drawFarDebris();
   if (art && mapMode === 'orbit' && ok(ASSET_IMG.globe)){
     // 24-frame rotation strip, cross-faded so the spin is smooth
     const im = ASSET_IMG.globe, n = 24, f = (time*2) % n, i0 = Math.floor(f), i1 = (i0 + 1) % n, t = f - i0, d = earth.R*2;
