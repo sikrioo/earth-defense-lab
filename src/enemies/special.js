@@ -1,9 +1,10 @@
+/* ---------- comets, splitters, temporary rocks (fragments, shower pebbles) ---------- */
 import { H, MOBILE, TAU, W, rand, time } from '../core/canvas.js';
 import { sprite } from '../core/particles.js';
 import { light, ring } from '../core/lights.js';
+import { ectr, makeEnemy } from './spawn.js';
 import { enemies } from './list.js';
 import { earth, mapMode } from '../world/earth.js';
-import { ectr, makeEnemy } from './spawn.js';
 
 // comets cross the sky fast; about half are aimed at Earth, the rest are fly-bys you can still shoot down
 export function placeComet(e){

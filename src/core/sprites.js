@@ -1,4 +1,3 @@
-
 /* ---------- sprites ---------- */
 const cache = new Map();
 export function glowSprite(c){ if (!c) c = [255,255,255];

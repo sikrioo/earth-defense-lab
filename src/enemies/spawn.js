@@ -1,10 +1,11 @@
+/* ---------- placing rocks: spawn positions, aim at Earth, the starting field ---------- */
 import { ELL, H, TAU, W, origin, rand } from '../core/canvas.js';
 import { ETYPE, VSIZE } from '../data/enemy-types.js';
 import { enemies } from './list.js';
+import { placeComet } from './special.js';
 import { earth, mapMode } from '../world/earth.js';
 import { level, setEarthHits } from '../game/progress.js';
 import { simMax } from '../game/sim.js';
-import { placeComet } from './special.js';
 
 export let kills = 0;
 export function setKills(v){ return kills = v; }

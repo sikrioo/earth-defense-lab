@@ -1,3 +1,4 @@
+/* ---------- lingering areas ---------- */
 import { ELL, TAU, rand } from '../core/canvas.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit } from '../core/particles.js';
@@ -5,7 +6,6 @@ import { light } from '../core/lights.js';
 import { DMG } from '../data/damage.js';
 import { hurtArea } from '../enemies/damage.js';
 
-/* ---------- lingering areas ---------- */
 export class BurningGround {
   constructor(x, y, R, dur, dmg = DMG.meteorBurn){ this.x = x; this.y = y; this.R = R; this.dur = dur; this.age = 0; this.dmg = dmg; this.tk = .2; }
   update(dt){

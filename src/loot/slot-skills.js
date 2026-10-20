@@ -1,3 +1,4 @@
+/* ---------- skills mapped into slots: cast automatically at the nearest rock ---------- */
 import { S, itemId, setItemId } from './items.js';
 import { CLASSES } from '../skills/index.js';
 

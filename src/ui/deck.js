@@ -1,22 +1,21 @@
-import { ECOL } from '../data/enemy-types.js';
-import { esc, mix, rgb } from '../core/util.js';
-import { setHpDirty } from '../game/progress.js';
-import { AFX_BY, CORE, MAT_NAME, RAR, S, SLOT_LV, afxVal, calcStats, coreDmg, mats, slots, slotsOpen, stash } from '../loot/items.js';
-import { MAX_PLUS, canPay, salvage, upCost, upgrade } from '../loot/upgrade.js';
-import { autoCdOf, skillOf, skillRef } from '../loot/slot-skills.js';
-import { pickups, setSlotsDirty } from '../loot/drops.js';
-import { CLASSES } from '../skills/index.js';
-import { setHolding } from '../game/input.js';
-
 /* ---------- deck UI: a hand of slot cards, a slot dialog, a separate bag page, a loot history ---------- */
+import { esc, mix, rgb } from '../core/util.js';
+import { ECOL } from '../data/enemy-types.js';
+import { CORE, MAT_NAME, MAX_PLUS, RAR, SLOT_LV } from '../data/loot.js';
+import { setHpDirty } from '../game/progress.js';
+import { setHolding } from '../game/input.js';
+import { AFX_BY, S, afxVal, calcStats, coreDmg, mats, slots, slotsOpen, stash } from '../loot/items.js';
+import { canPay, salvage, upCost, upgrade } from '../loot/upgrade.js';
+import { pickups, setSlotsDirty } from '../loot/drops.js';
+import { autoCdOf, skillOf, skillRef } from '../loot/slot-skills.js';
+import { CLASSES } from '../skills/index.js';
+
 const slotsEl = document.getElementById('slots'), matsEl = document.getElementById('mats');
 export const panelEl = document.getElementById('panel'), invEl = document.getElementById('inv'), histEl = document.getElementById('hist');
 const bagBtn = document.getElementById('bagbtn'), bagN = document.getElementById('bagn');
-export let paused = false, panelSlot = 0, panelMode = 'info', pickTab = 'skill', toastT = 0, invSel = null, invTab = 'all', bagNew = 0;
+export let paused = false, panelSlot = 0, panelMode = 'info', pickTab = 'skill', invSel = null, invTab = 'all', bagNew = 0;
 export function setPaused(v){ return paused = v; }
-export function setToastT(v){ return toastT = v; }
 export function setBagNew(v){ return bagNew = v; }
-export const toastEl = { classList:{ remove(){} } };
 const BASE_KO = { core:'자동 공격', charm:'부적' };
 function cardLook(it){
   if (it.base === 'skill'){ const sk = skillOf(it); return { c:ECOL[sk.elem] || [220,220,220], rc:ECOL[sk.elem] || [220,220,220], name:sk.ko, type:`${CLASSES[it.ci].ko} 스킬`, glyph:sk.ko[0], rar:false }; }

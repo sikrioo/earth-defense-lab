@@ -1,20 +1,14 @@
+/* ---------- rotating Earth: cities ride the spin, a hit on a city costs double ---------- */
 import { H, W, ctx, origin, rand, time } from '../core/canvas.js';
 import { PAL } from '../core/palette.js';
 import { emit, sprite } from '../core/particles.js';
 import { ring } from '../core/lights.js';
+import { CITY_DEF, CITY_HP, SPIN } from '../data/world.js';
 import { enemies } from '../enemies/list.js';
-import { earth, gameOver, mapMode } from './earth.js';
 import { alive } from '../enemies/spawn.js';
+import { earth, gameOver, mapMode } from './earth.js';
 import { logEvent } from '../ui/deck.js';
 
-/* ---------- rotating Earth: cities ride the spin, a hit on a city costs double ---------- */
-const CITY_DEF = [
-  ['서울', 127], ['도쿄', 139.7], ['시드니', 151.2], ['호놀룰루', -157.8], ['로스앤젤레스', -118.2], ['뉴욕', -74],
-  ['상파울루', -46.6], ['런던', -.1], ['카이로', 31.2], ['두바이', 55.3], ['뭄바이', 72.9], ['쿠알라룸푸르', 101.7],
-];
-export const CITY_HP = 3, CITY_MULT = 2;
-const SPIN = { line:2, orbit:6 };
-            // degrees per second
 const cities = CITY_DEF.map(([n, lon]) => ({ n, lon, hp:CITY_HP, x:0, y:0, a:0, vis:false, danger:0, hitT:0 }));
 let spinDeg = 0;
 const wrap180 = d => ((d + 180) % 360 + 360) % 360 - 180;

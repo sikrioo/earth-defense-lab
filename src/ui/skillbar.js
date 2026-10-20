@@ -1,3 +1,4 @@
+/* ---------- class tabs and the manual skill buttons ---------- */
 import { CLASSES } from '../skills/index.js';
 
 export let cls = 0, sel = 0;

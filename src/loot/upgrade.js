@@ -1,7 +1,8 @@
+/* ---------- upgrading items with materials, salvage ---------- */
+import { MAX_PLUS } from '../data/loot.js';
 import { calcStats, mats, stash } from './items.js';
 
 // ---- upgrades & salvage ----
-export const MAX_PLUS = 10;
 export function upCost(it){ return { shard:4 + it.plus*4, metal:it.plus >= 3 ? it.plus - 2 : 0, core:it.plus >= 7 ? 1 : 0 }; }
 export const canPay = c => mats.shard >= c.shard && mats.metal >= c.metal && mats.core >= c.core;
 export function upgrade(it){

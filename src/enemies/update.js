@@ -1,12 +1,13 @@
+/* ---------- moving rocks: steering, atmospheric burn, walls, impacts, shoving ---------- */
 import { W, origin, rand, time } from '../core/canvas.js';
 import { PAL } from '../core/palette.js';
 import { emit } from '../core/particles.js';
 import { enemies, floats } from './list.js';
-import { earth, mapMode } from '../world/earth.js';
 import { place } from './spawn.js';
 import { impact } from './damage.js';
-import { debris } from '../game/progress.js';
 import { offscreen } from './special.js';
+import { earth, mapMode } from '../world/earth.js';
+import { debris } from '../game/progress.js';
 
 export function updEnemies(dt){
   for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].gone) enemies.splice(i, 1);

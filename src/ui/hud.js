@@ -1,16 +1,17 @@
+/* ---------- Diablo-style orbs in a brass revolver-cylinder bezel + mana + the manual-skill picker ---------- */
 import { bar } from '../core/canvas.js';
 import { ECOL } from '../data/enemy-types.js';
+import { MANA_MAX, MANA_REGEN } from '../data/world.js';
 import { earth } from '../world/earth.js';
 import { earthMax } from '../loot/items.js';
 import { CLASSES } from '../skills/index.js';
 import { cls, rowEl, sel } from './skillbar.js';
 import { invEl, panelEl } from './deck.js';
 
-/* ---------- Diablo-style orbs in a brass revolver-cylinder bezel + mana + the manual-skill picker ---------- */
-export const MANA_MAX = 100, MANA_REGEN = 8;
 export let mana = MANA_MAX, mpDirty = true, noManaT = 0;
 export function setMana(v){ return mana = v; }
 export function setNoManaT(v){ return noManaT = v; }
+export function tickMana(dt, regen){ if (regen) mana = Math.min(MANA_MAX, mana + MANA_REGEN*dt); noManaT -= dt; }
 export const manaCost = s => Math.round(6 + s.cd*18);
 const gHp = document.getElementById('g-hp'), gMp = document.getElementById('g-mp');
 const hpFill = document.getElementById('hpfill'), mpFill = document.getElementById('mpfill');

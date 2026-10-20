@@ -1,10 +1,10 @@
+/* ---------- level-up pick: three poster cards, the game waits ---------- */
 import { origin } from '../core/canvas.js';
 import { ring } from '../core/lights.js';
 import { level } from '../game/progress.js';
 import { RUP, newRing, revs, rup } from './rings.js';
 import { invEl, logEvent, panelEl, pauseOn, setPaused } from '../ui/deck.js';
 
-/* ---------- level-up pick: three poster cards, the game waits ---------- */
 export let pickQ = 0, picking = false, pickOpts = [];
 export function setPickQ(v){ return pickQ = v; }
 const pickEl = document.getElementById('pick');

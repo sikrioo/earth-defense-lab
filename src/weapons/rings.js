@@ -1,22 +1,19 @@
+/* ---------- auto rings: six-shooter reticles that hunt rocks on their own; level-ups grow them ---------- */
 import { H, TAU, W, ctx, origin, rand, time } from '../core/canvas.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit } from '../core/particles.js';
 import { addShake, flash, ring } from '../core/lights.js';
 import { ECOL } from '../data/enemy-types.js';
+import { RANKS, RING } from '../data/rings.js';
 import { enemies } from '../enemies/list.js';
-import { earth, gameOver, mapMode } from '../world/earth.js';
 import { alive, ectr } from '../enemies/spawn.js';
 import { hurt, hurtArea } from '../enemies/damage.js';
+import { earth, gameOver, mapMode } from '../world/earth.js';
 import { sparks } from '../fx/bursts.js';
 import { simMax } from '../game/sim.js';
 import { closePick, picking, setPickQ } from './levelup.js';
 import { paused } from '../ui/deck.js';
 
-/* ---------- auto revs: six-shooter reticles that hunt rocks on their own; level-ups grow them ---------- */
-const RANKS = [
-  { k:'D', w:'DRY',   at:0 },  { k:'C', w:'COOL',  at:3 },  { k:'B', w:'BLUE',  at:6 },
-  { k:'A', w:'ACE',   at:10 }, { k:'S', w:'SWING', at:15 }, { k:'SS', w:'BEBOP', at:22 },
-];
 // every upgrade a level-up can offer; lv counts how many times it was taken
 export const RUP = {
   ring:  { tag:'RING',    ko:'링 추가',      d:l => `리볼버 링 ${l + 1}개 → ${l + 2}개`, max:7 },
@@ -30,10 +27,10 @@ export const RUP = {
   pull:  { tag:'SPECIAL', ko:'견인',        d:l => `링 안의 운석을 중심으로 끌어당김 (세기 ${l + 1})`, max:3, sp:true },
 };
 export const rup = {};
-const ringTick = l => .6*Math.pow(.85, l);
-const ringR = () => 30*(1 + rup.size*.2);
-const ringSpeed = () => 300*(1 + rup.move*.25);
-const ringDmg = rk => Math.round(14*(1 + rup.dmg*.25)*(1 + rk*.1));
+const ringTick = l => RING.tick*Math.pow(RING.tickStep, l);
+const ringR = () => RING.radius*(1 + rup.size*RING.sizeStep);
+const ringSpeed = () => RING.speed*(1 + rup.move*RING.moveStep);
+const ringDmg = rk => Math.round(RING.dmg*(1 + rup.dmg*RING.dmgStep)*(1 + rk*RING.rankStep));
 export const revs = [], casings = [], zaps = [];
 export function newRing(i){
   return { x:origin.x + (i % 2 ? 1 : -1)*(20 + i*16), y:origin.y - 120 - i*10, vx:0, vy:0, t:rand(0, .3), tgt:null, retarget:0,

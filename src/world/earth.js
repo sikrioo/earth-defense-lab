@@ -1,10 +1,10 @@
+/* ---------- Earth: globe painting, horizon cap, background, far debris, the hero marker ---------- */
 import { H, MOBILE, RS, TAU, W, ZOOM, bar, ctx, origin, time } from '../core/canvas.js';
+import { srng } from '../core/util.js';
 import { PAL } from '../core/palette.js';
 import { sprite } from '../core/particles.js';
-import { srng } from '../core/util.js';
 import { ASSET_IMG, GFX } from '../assets/index.js';
 
-export const EARTH_MAX = 1000;
 export const earth = { cx:0, cy:0, R:0, top:0, img:null, bg:null, flash:0, hp:1000 };
 export let mapMode = 'line', gameOver = false;
 export function setMapMode(v){ return mapMode = v; }
@@ -146,15 +146,5 @@ export function drawEarth(){
 }
 export function drawHero(){
   const x = origin.x, y = origin.y, pulse = .8 + .2*Math.sin(time*4);
-  if (GFX === 'asset' && heroImgOk()){ sprite(x, y - 14, 30*pulse, PAL.magic[3], .3); sprite(x + 9, y - 22, 4, PAL.magic[1], .9); return; }
   sprite(x, y - 6, 26*pulse, PAL.magic[3], .45); sprite(x, y - 6, 9, PAL.magic[1], .9); sprite(x, y - 6, 3.5, [255,255,255], 1);
-}
-const heroImgOk = () => typeof ASSET_IMG !== 'undefined' && ASSET_IMG.hero && ASSET_IMG.hero.complete && ASSET_IMG.hero.naturalWidth;
-export function drawHeroBody(){
-  if (GFX !== 'asset' || !heroImgOk()) return;
-  const im = ASSET_IMG.hero, hh = mapMode === 'orbit' ? 22 : 34, ww = hh*im.naturalWidth/im.naturalHeight;
-  const tu = ASSET_IMG.turret, th = hh*.8, tw = tu.naturalWidth ? th*tu.naturalWidth/tu.naturalHeight : 0;
-  ctx.globalAlpha = 1;
-  if (tw){ ctx.drawImage(tu, origin.x - ww*.5 - tw*.9, origin.y - th + 4, tw, th); ctx.save(); ctx.translate(origin.x + ww*.5 + tw*.9, 0); ctx.scale(-1, 1); ctx.drawImage(tu, 0, origin.y - th + 4, tw, th); ctx.restore(); }
-  ctx.drawImage(im, origin.x - ww/2, origin.y - hh + 4, ww, hh);
 }

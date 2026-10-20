@@ -1,8 +1,8 @@
+/* ---------- particles ---------- */
 import { MOBILE, Q, RS, ctx, lerp, shX, shY } from './canvas.js';
 import { PAL } from './palette.js';
 import { glowSprite } from './sprites.js';
 
-/* ---------- particles ---------- */
 export const parts = [];
  export let MAXP;
 export function setMAXP(v){ return MAXP = v; }

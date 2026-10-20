@@ -1,3 +1,4 @@
+/* ---------- Barbarian skills ---------- */
 import { ELL, TAU, ctx, lerp, rand, time } from '../core/canvas.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit, sprite, streak } from '../core/particles.js';

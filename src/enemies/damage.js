@@ -1,22 +1,23 @@
+/* ---------- hitting rocks: damage, knockback, crits, kills, area hits, Earth impacts ---------- */
 import { ELL, TAU, rand } from '../core/canvas.js';
+import { mix } from '../core/util.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit } from '../core/particles.js';
 import { addShake, flash, ring } from '../core/lights.js';
 import { ECOL } from '../data/enemy-types.js';
-import { mix } from '../core/util.js';
+import { CITY_MULT } from '../data/world.js';
 import { enemies, floats } from './list.js';
-import { earth, gameOver } from '../world/earth.js';
 import { alive, ectr, kills, setKills } from './spawn.js';
-import { debris, earthHits, endGame, gainXp, setEarthHits, setHpDirty } from '../game/progress.js';
+import { splitRock } from './special.js';
 import { demonSprite } from './render.js';
+import { earth, gameOver } from '../world/earth.js';
+import { cityAt, cityHit } from '../world/cities.js';
+import { debris, earthHits, endGame, gainXp, setEarthHits, setHpDirty } from '../game/progress.js';
 import { S } from '../loot/items.js';
 import { dropLoot } from '../loot/drops.js';
-import { CITY_MULT, cityAt, cityHit } from '../world/cities.js';
-import { splitRock } from './special.js';
 import { orbState } from '../ui/hud.js';
 
-let hitSrc = null;
- // optional {x,y} of what struck, for knockback direction
+let hitSrc = null;   // optional {x,y} of what struck, for knockback direction
 export function hurt(e, dmg, elem, src = hitSrc){
   if (!alive(e) || !dmg) return;
   if (src && !e.T.ballistic){

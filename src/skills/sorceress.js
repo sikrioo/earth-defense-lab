@@ -1,18 +1,19 @@
+/* ---------- Sorceress skills (fire, ice, lightning, hydra) ---------- */
 import { ELL, H, MOBILE, TAU, W, ctx, lerp, origin, rand, time } from '../core/canvas.js';
+import { segDist } from '../core/util.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit, sprite, streak } from '../core/particles.js';
 import { addShake, flash, light, ring } from '../core/lights.js';
 import { boltTick, boltWithForks, drawBolt, drawBolts, jag, prand, pseed } from '../core/lightning.js';
 import { DMG } from '../data/damage.js';
-import { segDist } from '../core/util.js';
-import { enemies } from '../enemies/list.js';
 import { alive, ectr } from '../enemies/spawn.js';
 import { enemyAt, hurt, hurtArea, nearestEnemy, ringHit } from '../enemies/damage.js';
+import { enemies } from '../enemies/list.js';
 import { fireBurst, iceBurst, sparks } from '../fx/bursts.js';
 import { Proj, trailOf } from '../fx/projectile.js';
-import { BurningGround } from './areas.js';
-import { active } from './index.js';
 import { tgt } from '../game/input.js';
+import { active } from './index.js';
+import { BurningGround } from './areas.js';
 
 /* ================= SORCERESS ================= */
 export let Fireball;

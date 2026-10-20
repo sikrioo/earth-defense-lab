@@ -1,7 +1,7 @@
+/* ---------- lightning ---------- */
 import { MOBILE, ctx } from './canvas.js';
 import { PAL } from './palette.js';
 
-/* ---------- lightning ---------- */
 /* Lightning shapes are precomputed once in unit space (start 0,0 → end 1,0) and only
    stretched onto the real endpoints each frame. Each call site keeps the same shape for
    ~45ms (boltTick), so bolts still crackle but nothing is regenerated per frame. */
@@ -24,9 +24,8 @@ function unitJag(rough, depth){
 const JAG_R = [.16, .22, .3], JAG_N = 16;
 const JAG_POOL = JAG_R.map(r => { const byDepth = []; for (let d = 1; d <= 7; d++){ byDepth[d] = []; for (let k = 0; k < JAG_N; k++) byDepth[d].push(unitJag(r, d)); } return byDepth; });
 export let boltTick = 0, boltT = 0, jagCall = 0;
-export function setBoltTick(v){ return boltTick = v; }
-export function setBoltT(v){ return boltT = v; }
-export function setJagCall(v){ return jagCall = v; }
+export function resetJag(){ jagCall = 0; }
+export function tickBolts(dt){ boltT += dt; if (boltT >= .045){ boltT = 0; boltTick++; } }
 export function jag(x1, y1, x2, y2, rough = .18){
   const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy);
   const depth = Math.max(1, Math.min(7, Math.ceil(Math.log2(Math.max(2, L/9)))));

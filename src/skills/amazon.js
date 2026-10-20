@@ -1,16 +1,17 @@
+/* ---------- Amazon skills ---------- */
 import { TAU, rand } from '../core/canvas.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit } from '../core/particles.js';
 import { addShake, flash, light, ring } from '../core/lights.js';
 import { DMG } from '../data/damage.js';
+import { hurtArea, nearestEnemy } from '../enemies/damage.js';
 import { enemies } from '../enemies/list.js';
 import { alive, ectr } from '../enemies/spawn.js';
-import { hurtArea, nearestEnemy } from '../enemies/damage.js';
 import { fireBurst, iceBurst, sparks } from '../fx/bursts.js';
 import { Proj, trailOf } from '../fx/projectile.js';
+import { active } from './index.js';
 import { BurningGround, PoisonCloud } from './areas.js';
 import { BoltChain } from './sorceress.js';
-import { active } from './index.js';
 
 /* ================= AMAZON ================= */
 export function multiShot(ox, oy, tx, ty){

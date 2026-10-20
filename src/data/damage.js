@@ -1,4 +1,3 @@
-
 /* ---------- enemies & damage ---------- */
 // Fixed damage per skill for now — tune these numbers later.
 export const DMG = {

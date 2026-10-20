@@ -1,20 +1,21 @@
+/* ---------- events: meteor showers on a timer, a rogue planet now and then ---------- */
 import { H, TAU, W, ctx, rand } from '../core/canvas.js';
 import { addShake } from '../core/lights.js';
 import { ETYPE } from '../data/enemy-types.js';
+import { EVENTS } from '../data/world.js';
 import { enemies } from '../enemies/list.js';
-import { earth, gameOver, mapMode } from '../world/earth.js';
-import { makeEnemy } from '../enemies/spawn.js';
-import { skewTag } from '../weapons/rings.js';
-import { simMax } from './sim.js';
 import { spawnTemp } from '../enemies/special.js';
+import { makeEnemy } from '../enemies/spawn.js';
+import { earth, gameOver, mapMode } from '../world/earth.js';
+import { simMax } from './sim.js';
+import { skewTag } from '../weapons/rings.js';
 import { logEvent, paused } from '../ui/deck.js';
 
-/* ---------- events: meteor showers on a timer, a rogue planet now and then ---------- */
-var EV = { shower:35, planet:70, banner:null, bannerT:0 };
-export function resetEvents(){ EV.shower = simMax ? 8 : 35; EV.planet = simMax ? 4 : 70; EV.banner = null; EV.bannerT = 0; }
+const EV = { shower:EVENTS.firstShower, planet:EVENTS.firstPlanet, banner:null, bannerT:0 };
+export function resetEvents(){ EV.shower = simMax ? EVENTS.simFirstShower : EVENTS.firstShower; EV.planet = simMax ? EVENTS.simFirstPlanet : EVENTS.firstPlanet; EV.banner = null; EV.bannerT = 0; }
 function banner(title, sub){ EV.banner = { title, sub }; EV.bannerT = 2.6; }
 function meteorShower(){
-  const n = simMax ? 28 : 14, left = Math.random() < .5;
+  const n = simMax ? EVENTS.simShowerSize : EVENTS.showerSize, left = Math.random() < .5;
   for (let i = 0; i < n; i++){
     let x, y, vx, vy;
     if (mapMode === 'orbit'){
@@ -38,9 +39,9 @@ function rogueIncoming(){
 export function updEvents(dt){
   EV.bannerT = Math.max(0, EV.bannerT - dt);
   if (gameOver || paused) return;
-  EV.shower -= dt; if (EV.shower <= 0){ EV.shower = simMax ? 12 : rand(38, 50); meteorShower(); }
+  EV.shower -= dt; if (EV.shower <= 0){ EV.shower = simMax ? EVENTS.simShowerEvery : rand(...EVENTS.showerEvery); meteorShower(); }
   const planetUp = enemies.some(e => e.type === 'planet' && !e.dead);
-  if (!planetUp){ EV.planet -= dt; if (EV.planet <= 0){ EV.planet = simMax ? 20 : rand(100, 130); rogueIncoming(); } }
+  if (!planetUp){ EV.planet -= dt; if (EV.planet <= 0){ EV.planet = simMax ? EVENTS.simPlanetEvery : rand(...EVENTS.planetEvery); rogueIncoming(); } }
 }
 export function drawEvents(){
   ctx.globalCompositeOperation = 'source-over';

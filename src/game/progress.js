@@ -1,21 +1,25 @@
+/* ---------- level, xp, game over and restart ---------- */
 import { TAU, origin, rand, time } from '../core/canvas.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit } from '../core/particles.js';
 import { addShake, flash, ring } from '../core/lights.js';
+import { SLOT_LV } from '../data/loot.js';
+import { MANA_MAX } from '../data/world.js';
 import { floats } from '../enemies/list.js';
-import { earth, mapMode, setGameOver } from '../world/earth.js';
 import { initEnemies, kills } from '../enemies/spawn.js';
-import { SLOT_LV, calcStats, earthMax } from '../loot/items.js';
-import { setSlotsDirty } from '../loot/drops.js';
+import { earth, mapMode, setGameOver } from '../world/earth.js';
 import { resetCities } from '../world/cities.js';
-import { resetRings } from '../weapons/rings.js';
-import { pickQ, setPickQ } from '../weapons/levelup.js';
-import { resetEvents } from './events.js';
-import { active } from '../skills/index.js';
-import { logEvent, resetLoadout } from '../ui/deck.js';
-import { MANA_MAX, setMana } from '../ui/hud.js';
 import { setHolding } from './input.js';
-import { overEl } from '../main.js';
+import { resetEvents } from './events.js';
+import { calcStats, earthMax } from '../loot/items.js';
+import { setSlotsDirty } from '../loot/drops.js';
+import { active } from '../skills/index.js';
+import { pickQ, setPickQ } from '../weapons/levelup.js';
+import { resetRings } from '../weapons/rings.js';
+import { logEvent, resetLoadout } from '../ui/deck.js';
+import { setMana } from '../ui/hud.js';
+
+const overEl = document.getElementById('over');
 
 export let level = 1, xp = 0;
 export const xpNeed = l => Math.round(18*Math.pow(l, 1.45));

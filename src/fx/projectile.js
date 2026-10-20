@@ -1,13 +1,13 @@
+/* ---------- generic projectile (arrows, javelins, bolts) ---------- */
 import { TAU, ctx, rand, time } from '../core/canvas.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit, sprite, streak } from '../core/particles.js';
 import { light } from '../core/lights.js';
-import { alive, ectr } from '../enemies/spawn.js';
 import { enemyAt, hurt } from '../enemies/damage.js';
+import { alive, ectr } from '../enemies/spawn.js';
 import { sparks } from './bursts.js';
 import { STEEL_PASS } from '../skills/barbarian.js';
 
-/* ---------- generic projectile (arrows, javelins, bolts) ---------- */
 export class Proj {
   constructor(o){
     Object.assign(this, { speed:900, len:18, home:0, pal:PAL.bow, kind:'arrow', trail:null, onHit:null, collide:false, dmg:0, elem:'bow', pierce:false, targetE:null }, o);

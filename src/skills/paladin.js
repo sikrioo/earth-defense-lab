@@ -1,3 +1,4 @@
+/* ---------- Paladin skills ---------- */
 import { ELL, TAU, ctx, lerp, rand, time } from '../core/canvas.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit, sprite, streak } from '../core/particles.js';
@@ -8,8 +9,8 @@ import { alive, ectr } from '../enemies/spawn.js';
 import { hurt, hurtArea } from '../enemies/damage.js';
 import { holyBurst, sparks } from '../fx/bursts.js';
 import { Proj, trailOf } from '../fx/projectile.js';
-import { BoltChain } from './sorceress.js';
 import { active } from './index.js';
+import { BoltChain } from './sorceress.js';
 
 /* ================= PALADIN ================= */
 export class BlessedHammer {

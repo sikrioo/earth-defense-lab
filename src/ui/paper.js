@@ -1,5 +1,4 @@
-
-
+/* ---------- poster paper and grain textures for the UI ---------- */
 // runs once at boot, from main.js, in the original file order
 export function setup(){
   try {

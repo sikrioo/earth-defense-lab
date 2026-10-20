@@ -1,3 +1,4 @@
+/* ---------- code-drawn rock sprites (used when graphics are set to code, and for the newer rock types) ---------- */
 import { TAU, ctx } from '../core/canvas.js';
 import { mix, srng } from '../core/util.js';
 

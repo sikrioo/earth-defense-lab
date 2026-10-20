@@ -1,9 +1,10 @@
+/* ---------- Bounty Hunter skills (space-western gunslinger kit) ---------- */
 import { H, TAU, W, ZOOM, ctx, lerp, origin, rand } from '../core/canvas.js';
+import { segDist } from '../core/util.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit, sprite, streak } from '../core/particles.js';
 import { addShake, flash, light, ring } from '../core/lights.js';
 import { DMG } from '../data/damage.js';
-import { segDist } from '../core/util.js';
 import { enemies } from '../enemies/list.js';
 import { alive, ectr } from '../enemies/spawn.js';
 import { enemyAt, hurt, hurtArea } from '../enemies/damage.js';
@@ -13,8 +14,7 @@ import { active } from './index.js';
 
 /* ================= BOUNTY HUNTER (space-western gunslinger kit) ================= */
 export let jamT = 0;
-export function setJamT(v){ return jamT = v; }
-   // "Jam Session" buff timer: cores fire faster while > 0
+export function tickJam(dt){ jamT = Math.max(0, jamT - dt); }   // "Jam Session" buff timer: cores fire faster while > 0
 class Blip {    // tiny timed draw helper (muzzle flashes, laser sights)
   constructor(life, draw, upd){ this.age = 0; this.life = life; this.d = draw; this.u = upd; }
   update(dt){ this.age += dt; this.u && this.u(this, dt); return this.age < this.life; }

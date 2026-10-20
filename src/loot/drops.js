@@ -1,19 +1,15 @@
+/* ---------- drops and pickups flying to the hero ---------- */
 import { TAU, origin, rand, time } from '../core/canvas.js';
+import { rint } from '../core/util.js';
 import { sprite, streak } from '../core/particles.js';
 import { flash } from '../core/lights.js';
-import { rint } from '../core/util.js';
+import { DROP, MAT_COL, RAR } from '../data/loot.js';
 import { level } from '../game/progress.js';
-import { RAR, S, mats, rollItem, stash } from './items.js';
+import { S, mats, rollItem, stash } from './items.js';
 import { bagNew, logEvent, setBagNew } from '../ui/deck.js';
 
 // ---- drops & pickups ----
-const DROP = {
-  normal:{ shard:.45 }, runner:{ shard:.35 }, brute:{ shard:1, metal:.25 },
-  meteor:{ shard:1, metal:.3 }, elite:{ shard:1, metal:1, item:.5, minRar:1 }, boss:{ shard:1, metal:1, core:1, item:1, minRar:2 },
-  comet:{ shard:1, metal:.5, core:.1 }, splitter:{ shard:.8 }, shard:{ shard:.15 }, pebble:{ shard:.15 }, planet:{ shard:1, metal:1, core:1, item:1, minRar:3 },
-};
 export const pickups = [];
-const MAT_COL = { shard:[214,196,170], metal:[140,205,255], core:[255,166,70] };
 export function dropLoot(e){
   const d = DROP[e.type]; if (!d) return;
   const cx = e.x, cy = e.y - e.r, boost = 1 + (S.mat || 0)/100;

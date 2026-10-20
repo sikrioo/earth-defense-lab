@@ -1,13 +1,13 @@
+/* ---------- skill table ---------- */
 import { LIGHT, PAL } from '../core/palette.js';
 import { DMG } from '../data/damage.js';
 import { Blizzard, ChargedBolts, FireWall, Fireball, FrozenOrb, Hydra, LightningNova, Meteor, NovaRing, chainLightning } from './sorceress.js';
-import { freezingArrow, guidedArrow, immolationArrow, lightningFury, multiShot, plagueJavelin } from './amazon.js';
 import { Aura, BlessedHammer, FistOfHeavens, holyBolt } from './paladin.js';
+import { freezingArrow, guidedArrow, immolationArrow, lightningFury, multiShot, plagueJavelin } from './amazon.js';
 import { Curse, boneSpear, boneSpirit, corpseExplosion, teeth } from './necromancer.js';
 import { BattleOrders, Berserk, LeapAttack, WarCry, Whirlwind, doubleThrow } from './barbarian.js';
 import { Harpoon, Jam, LongShot, Mine, Orbital, Strafe, fanFire, missiles, scatter } from './hunter.js';
 
-/* ---------- skill table ---------- */
 export const active = [];
 const push = o => active.push(o);
 export const CLASSES = [

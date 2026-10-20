@@ -1,18 +1,20 @@
+/* ---------- auto-attack cores: firing at the nearest rock ---------- */
 import { ELL, TAU, origin, rand } from '../core/canvas.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit, sprite } from '../core/particles.js';
 import { flash, ring } from '../core/lights.js';
-import { enemies } from '../enemies/list.js';
-import { gameOver } from '../world/earth.js';
+import { CORE } from '../data/loot.js';
 import { alive, ectr } from '../enemies/spawn.js';
 import { hurtArea, nearestEnemy } from '../enemies/damage.js';
-import { CORE, S, coreDmg, slots, slotsOpen } from './items.js';
-import { autoCdOf, skillOf } from './slot-skills.js';
+import { enemies } from '../enemies/list.js';
+import { gameOver } from '../world/earth.js';
 import { sparks } from '../fx/bursts.js';
 import { Proj } from '../fx/projectile.js';
+import { S, coreDmg, slots, slotsOpen } from './items.js';
+import { autoCdOf, skillOf } from './slot-skills.js';
+import { active } from '../skills/index.js';
 import { BoltChain } from '../skills/sorceress.js';
 import { jamT } from '../skills/hunter.js';
-import { active } from '../skills/index.js';
 import { chamberFire } from '../ui/deck.js';
 
 // ---- auto-attack cores ----

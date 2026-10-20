@@ -1,14 +1,15 @@
+/* ---------- drawing rocks: sprite cache, baked-art sprites, hit flashes, bars, tails ---------- */
 import { MOBILE, TAU, ZOOM, ctx, setCtx, time } from '../core/canvas.js';
+import { mix } from '../core/util.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { sprite } from '../core/particles.js';
 import { light } from '../core/lights.js';
 import { ECOL, ETYPE, VSIZE } from '../data/enemy-types.js';
-import { mix } from '../core/util.js';
-import { floats } from './list.js';
+import { ASSET_IMG, GFX } from '../assets/index.js';
 import { demonPose } from './update.js';
 import { CUSTOM_PAINT, paintDemon } from './painters.js';
-import { ASSET_IMG, GFX } from '../assets/index.js';
 import { drawTail } from './special.js';
+import { floats } from './list.js';
 
 // Each demon pose is painted once into an offscreen sprite; per frame we only blit it.
 const SPR_RES = 2;

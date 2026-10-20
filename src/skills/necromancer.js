@@ -1,11 +1,12 @@
+/* ---------- Necromancer skills ---------- */
 import { ELL, TAU, lerp, rand, time } from '../core/canvas.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit, sprite } from '../core/particles.js';
 import { addShake, flash, light, ring } from '../core/lights.js';
 import { DMG } from '../data/damage.js';
+import { hurtArea, nearestEnemy } from '../enemies/damage.js';
 import { enemies } from '../enemies/list.js';
 import { alive } from '../enemies/spawn.js';
-import { hurtArea, nearestEnemy } from '../enemies/damage.js';
 import { sparks } from '../fx/bursts.js';
 import { Proj } from '../fx/projectile.js';
 import { active } from './index.js';

@@ -1,4 +1,4 @@
-
+/* ---------- rock types: hit points, size, colours, speed, xp, Earth damage ---------- */
 // Hunched demons ("fallen"-like). s = drawing scale; r/h = hitbox in px.
 // Orb dummies. r = radius in px (height = 2r); VSIZE gives each one of three sizes.
 export const VSIZE = [.85, 1, 1.15];

@@ -1,9 +1,9 @@
+/* ---------- shared bursts ---------- */
 import { ELL, TAU, rand } from '../core/canvas.js';
 import { LIGHT, PAL } from '../core/palette.js';
 import { emit } from '../core/particles.js';
 import { addShake, flash, ring } from '../core/lights.js';
 
-/* ---------- shared bursts ---------- */
 export function sparks(x, y, pal, n, sp = 340, size = 2.5){
   for (let k = 0; k < n; k++){ const a = rand(0, TAU), s = rand(sp*.35, sp); emit({ x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, drag:3, life:rand(.15,.4), s0:size, s1:.6, streak:3, pal }); }
 }
