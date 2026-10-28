@@ -26,7 +26,10 @@ export function setViewport(zoom){
 export function tickClock(dt){ time += dt; }
 export function addShakeRaw(v){ shake = Math.min(14, shake + v); }
 export function decayShake(dt){ shake *= Math.exp(-9*dt); if (shake < .05) shake = 0; }
-export function rollShake(){ shX = shake ? rand(-1, 1)*shake : 0; shY = shake ? rand(-1, 1)*shake : 0; }
+// a fixed draw offset (the portrait column is centred on wide screens) rides along with the shake
+export let offX = 0, offY = 0;
+export function setOffset(x, y){ offX = x; offY = y; }
+export function rollShake(){ shX = offX + (shake ? rand(-1, 1)*shake : 0); shY = offY + (shake ? rand(-1, 1)*shake : 0); }
 // adaptive quality: first drop the pixel ratio, then thin out cosmetic particles; true if anything changed
 export function lowerQuality(){
   if (DPR_CAP > 1){ DPR_CAP = 1; return 'dpr'; }

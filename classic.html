@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Earth Defense Lab · Classic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Bebas+Neue&family=Black+Han+Sans&family=Courier+Prime:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500&display=swap">
+</head>
+<body>
+<div class="vignette" aria-hidden="true"></div><div class="grain" aria-hidden="true"></div>
+<canvas id="c" aria-label="스킬 시전 영역. 클릭한 위치로 선택한 스킬을 시전합니다."></canvas>
+
+<div class="top">
+  <p><b>클릭</b> 선택한 스킬 시전 · <b>S</b> 스킬 고르기 · <b>카드</b> 슬롯 변경·강화 · <b>1–0 · QWERTY</b> 단축키<br><span class="credit" id="credit">지구 텍스처: NASA Blue Marble · 지구·운석은 셀 셰이딩으로 직접 렌더링</span></p>
+  <div class="side"><div class="stats" id="stats">입자 0 · 0 fps</div><div class="btns"><button class="respawn" id="gfxbtn" type="button">그래픽: 에셋</button><button class="respawn" id="mapbtn" type="button">맵: 지구 방어선</button><button class="respawn" id="simbtn" type="button" aria-pressed="false" title="모든 강화 최대 + 운석 최대치로 시뮬레이션">MAX 시뮬</button><button class="respawn" id="respawn" type="button">처음부터</button></div></div>
+</div>
+
+<aside class="hist" id="hist" aria-label="획득 기록" aria-live="polite"></aside>
+<div class="panel" id="panel" hidden></div>
+<div class="inv" id="inv" hidden></div>
+<div class="pick" id="pick" hidden role="dialog" aria-modal="true" aria-label="레벨업 보상 선택">
+  <div class="pk-box"><div class="pk-head"><span class="pk-lv">LV 2</span><span class="pk-title">LEVEL UP · PICK ONE</span></div><div class="pk-row"></div><p class="pk-hint">클릭하거나 1 · 2 · 3</p></div>
+</div>
+<div class="over" id="over" hidden>
+  <div class="card"><h2>지구가 무너졌어요</h2><p></p><button class="respawn" id="again" type="button">다시 막기</button></div>
+</div>
+
+<nav class="bar" aria-label="게임 조작">
+  <div class="strip-top"><span class="lv" id="lv">LV 1</span><div class="xpbar"><i id="xpfill"></i></div><span class="xpt" id="xpt">0 / 18</span><div class="mats" id="mats"></div></div>
+  <div class="hud">
+    <div class="gauge hp" id="g-hp"><span class="glabel">EARTH</span><span class="gnum" id="ehpt">1000</span><div class="gbar"><i id="hpfill"></i></div></div>
+    <div class="gauge mp" id="g-mp"><span class="glabel">MANA</span><span class="gnum" id="mpt">100</span><div class="gbar"><i id="mpfill"></i></div></div>
+    <div class="slabs" id="slots" role="group" aria-label="슬롯 6칸"></div>
+    <button type="button" class="mskill" id="mskill" aria-haspopup="dialog" aria-expanded="false"></button>
+    <button type="button" class="bagbtn" id="bagbtn"><span>BAG</span><b id="bagn">0</b></button>
+  </div>
+</nav>
+<div class="skillpop" id="skillpop" role="dialog" aria-label="수동 스킬 선택" hidden>
+  <div class="pophead"><span>수동 스킬 · 화면 클릭으로 시전, 마나 소모</span><button type="button" class="pbtn ghost popclose">닫기</button></div>
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <div class="row" id="row"></div>
+</div>
+<script type="module" src="/src/classic.js"></script>
+</body>
+</html>
