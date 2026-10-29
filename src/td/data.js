@@ -8,34 +8,39 @@ export const ROCK = {
   shard:   { ko:'파편',       hp:14,    r:8,  speed:78,  dmg:5,   energy:.5,  col:[120,236,255], sides:5 },
   brute:   { ko:'철 운석',    hp:150,   r:25, speed:30,  dmg:30,  energy:4,   col:[200,206,230], sides:9, armor:3 },
   comet:   { ko:'붉은 혜성',  hp:40,    r:10, speed:250, dmg:25,  energy:3,   col:[255,84,60],   sides:6, comet:true },
-  elite:   { ko:'수정 운석',  hp:420,   r:30, speed:26,  dmg:60,  energy:12,  col:[220,120,255], sides:6, armor:4, elite:true },
-  colossus:{ ko:'거대 운석',  hp:2400,  r:66, speed:12,  dmg:300, energy:60,  col:[255,120,60],  sides:11, boss:true, spawns:'rock', every:3.2 },
-  planet:  { ko:'떠돌이 행성', hp:6000, r:86, speed:9,   dmg:600, energy:120, col:[255,70,60],   boss:true, planet:true, spawns:'dart', every:2.4 },
+  elite:   { ko:'수정 운석',  hp:520,   r:30, speed:26,  dmg:60,  energy:12,  col:[220,120,255], sides:6, armor:4, elite:true },
+  spore:   { ko:'포자',       hp:22,    r:13, speed:74,  dmg:8,   energy:1,   col:[255,70,95],   organic:true, weave:34 },
+  pod:     { ko:'기생 포드',  hp:95,    r:16, speed:40,  dmg:20,  energy:3,   col:[255,60,85],   organic:true, split:3, splitInto:'spore' },
+  colossus:{ ko:'거대 운석',  hp:3600,  r:66, speed:12,  dmg:300, energy:60,  col:[255,120,60],  sides:11, boss:true, spawns:'rock', every:3.2 },
+  hive:    { ko:'생체 행성',  hp:7000,  r:82, speed:10,  dmg:500, energy:110, col:[255,50,75],   boss:true, organic:true, spawns:'spore', every:1.5 },
+  planet:  { ko:'떠돌이 행성', hp:9000, r:86, speed:9,   dmg:600, energy:120, col:[255,70,60],   boss:true, planet:true, spawns:'dart', every:2.4 },
 };
 
-// 30 waves. Every wave gets a budget of rocks; types join as the waves go on; 5/15/25 bring an elite,
-// 10 a colossus, 20 the rogue planet, 30 the rogue planet with a colossus escort
+// 30 waves. Every wave gets a budget of rocks; types join as the waves go on (organics from wave 8);
+// bosses: 10 colossus, 15 living planet, 20 rogue planet, 25 living planet + colossus, 30 rogue + living planet
 export const WAVES = {
   last: 30,
-  count: w => Math.round(9 + w*2.4),
-  window: w => 13 + w*.35,                      // seconds the wave's rocks are spread over
-  hp: w => Math.pow(1.095, w - 1),
-  speed: w => 1 + Math.min(.35, w*.012),
+  count: w => Math.round(10 + w*2.8),
+  window: w => 12 + w*.3,                      // seconds the wave's rocks are spread over
+  hp: w => Math.pow(1.12, w - 1),
+  speed: w => 1 + Math.min(.5, w*.018),
   mix: w => [
     ['rock', 10],
     ['dart', w >= 2 ? 5 : 0],
     ['comet', w >= 3 ? 1.2 : 0],
     ['splitter', w >= 4 ? 3 : 0],
     ['brute', w >= 6 ? 2.4 : 0],
+    ['spore', w >= 8 ? 3 : 0],
+    ['pod', w >= 11 ? 1.6 : 0],
   ],
-  extra: w => w === 30 ? ['planet', 'colossus'] : w === 20 ? ['planet'] : w === 10 ? ['colossus'] : w % 5 === 0 ? ['elite'] : w > 12 && w % 3 === 0 ? ['elite'] : [],
-  breakTime: 2.6,
+  extra: w => w === 30 ? ['planet', 'hive'] : w === 25 ? ['hive', 'colossus'] : w === 20 ? ['planet'] : w === 15 ? ['hive'] : w === 10 ? ['colossus'] : w % 5 === 0 ? ['elite'] : w > 12 && w % 3 === 0 ? ['elite'] : [],
+  breakTime: 2,
 };
 
 export const FORT = { hp:1000, mounts:6 };
 
 // energy: every kill fills the bar, a full bar is one pick of three cards; each pick needs a bit more
-export const ENERGY = { first:4, step:2.6, grow:1.03 };
+export const ENERGY = { first:5, step:3, grow:1.04 };
 
 // turrets: base stats, and the cards that upgrade each one (max = times it can be taken)
 export const TURRET = {

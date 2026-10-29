@@ -55,7 +55,7 @@ function kill(e){
   explode(e.x, e.y, e.r*1.6, e.T.col);
   if (e.T.boss){ addShake(10); for (let i = 0; i < 4; i++) setTimeout(() => explode(e.x + rand(-e.r, e.r), e.y + rand(-e.r, e.r), e.r, e.T.col), i*120); }
   if (e.T.split) for (let i = 0; i < e.T.split; i++){
-    const s = spawnRock('shard', e.x + rand(-8, 8), e.y + rand(-8, 8), { hpMul:1 });
+    const s = spawnRock(e.T.splitInto || 'shard', e.x + rand(-8, 8), e.y + rand(-8, 8), { hpMul:1 });
     s.px = Math.cos(-Math.PI/2 + (i - 1)*1.1)*140; s.py = -40; s.tx = Math.max(10, Math.min(PW - 10, e.x + (i - 1)*70));
     G.waveTotal++;
   }
@@ -91,6 +91,7 @@ function rockSprite(e){
   const R = e.r, pad = 10, size = Math.ceil((R*2 + pad*2)*SPR), c = document.createElement('canvas'); c.width = c.height = size;
   const g = c.getContext('2d'); g.scale(SPR, SPR); g.translate(R + pad, R + pad);
   const col = e.T.col, rnd = srng(e.type.length*97 + e.variant*31 + 7);
+  if (e.T.organic){ paintOrganic(g, e.type, R, col, rnd); s = { c, size:size/SPR, o:R + pad }; sprites.set(key, s); return s; }
   if (e.T.planet){
     const gr = g.createRadialGradient(-R*.35, -R*.35, R*.1, 0, 0, R);
     gr.addColorStop(0, '#3a1c22'); gr.addColorStop(1, '#0d0709'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
@@ -122,6 +123,87 @@ function rockSprite(e){
   }
   s = { c, size:size/SPR, o:R + pad }; sprites.set(key, s); return s;
 }
+/* ----- organics: membrane, veins and glowing sacs; the living planet also gets a live eye and tendrils ----- */
+function blobPath(g, R, rnd, n = 12, wob = .12){
+  const pts = []; for (let i = 0; i < n; i++){ const a = i/n*TAU, r = R*(1 - wob + rnd()*wob*2); pts.push([Math.cos(a)*r, Math.sin(a)*r]); }
+  g.beginPath();
+  for (let i = 0; i < n; i++){ const p = pts[i], q = pts[(i + 1) % n]; const mx = (p[0] + q[0])/2, my = (p[1] + q[1])/2; i ? g.quadraticCurveTo(p[0], p[1], mx, my) : g.moveTo(mx, my); }
+  const p = pts[0], q = pts[1]; g.quadraticCurveTo(p[0], p[1], (p[0] + q[0])/2, (p[1] + q[1])/2); g.closePath();
+}
+function sac(g, x, y, r, col){
+  const gr = g.createRadialGradient(x - r*.3, y - r*.3, r*.1, x, y, r);
+  gr.addColorStop(0, 'rgba(255,190,170,.95)'); gr.addColorStop(.35, rgb(col, .9)); gr.addColorStop(1, 'rgba(90,0,20,.9)');
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(x - r*.35, y - r*.4, r*.25, r*.14, -.6, 0, TAU); g.fill();
+}
+function paintOrganic(g, type, R, col, rnd){
+  if (type === 'spore'){
+    // a bristling spore: dark fuzz, a hot core showing through
+    g.strokeStyle = 'rgba(40,10,18,.95)'; g.lineWidth = 1.4;
+    for (let i = 0; i < 22; i++){ const a = i/22*TAU + rnd()*.2, l = R*(1.05 + rnd()*.35); g.beginPath(); g.moveTo(Math.cos(a)*R*.6, Math.sin(a)*R*.6); g.lineTo(Math.cos(a)*l, Math.sin(a)*l); g.stroke(); }
+    const gr = g.createRadialGradient(0, 0, R*.1, 0, 0, R*.85); gr.addColorStop(0, '#3b0a16'); gr.addColorStop(1, '#12040a');
+    g.fillStyle = gr; blobPath(g, R*.85, rnd, 9, .1); g.fill();
+    sac(g, 0, R*.05, R*.36, col);
+    g.strokeStyle = rgb(col, .6); g.lineWidth = 1; blobPath(g, R*.85, rnd, 9, .1); g.stroke();
+    return;
+  }
+  if (type === 'pod'){
+    // a capsule with a glowing seam and cilia along its sides
+    g.strokeStyle = 'rgba(60,14,26,.9)'; g.lineWidth = 1.2;
+    for (let i = 0; i < 14; i++){ const y = -R*.9 + i/13*R*1.8, sd = i % 2 ? 1 : -1, w = R*.55*Math.sqrt(1 - (y/R)**2); g.beginPath(); g.moveTo(sd*w, y); g.lineTo(sd*(w + R*.32), y + R*.08); g.stroke(); }
+    const gr = g.createLinearGradient(-R*.6, 0, R*.6, 0); gr.addColorStop(0, '#2a0812'); gr.addColorStop(.5, '#4a1222'); gr.addColorStop(1, '#14050b');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, R*.58, R, 0, 0, TAU); g.fill();
+    g.strokeStyle = rgb(col, .95); g.lineWidth = 2.2; g.beginPath(); g.moveTo(0, -R*.75);
+    for (let k = 1; k <= 6; k++) g.lineTo((k % 2 ? 1 : -1)*R*.1, -R*.75 + k*R*.25); g.stroke();
+    g.strokeStyle = rgb(col, .25); g.lineWidth = 7; g.stroke();
+    sac(g, 0, -R*.55, R*.16, col); sac(g, 0, R*.55, R*.13, col);
+    return;
+  }
+  // hive: the living planet's body (eye and tendrils are drawn live)
+  const gr = g.createRadialGradient(-R*.3, -R*.35, R*.1, 0, 0, R);
+  gr.addColorStop(0, '#4a1020'); gr.addColorStop(.6, '#22060f'); gr.addColorStop(1, '#0c0207');
+  g.fillStyle = gr; blobPath(g, R, rnd, 14, .08); g.fill();
+  g.save(); blobPath(g, R, rnd, 14, .08); g.clip();
+  // veins
+  g.strokeStyle = 'rgba(150,20,45,.55)'; g.lineWidth = 2;
+  for (let k = 0; k < 9; k++){ let a = rnd()*TAU, r = R*.32; g.beginPath(); g.moveTo(Math.cos(a)*r, Math.sin(a)*r); for (let j = 0; j < 5; j++){ a += (rnd() - .5)*.7; r += R*.14; g.lineTo(Math.cos(a)*r, Math.sin(a)*r); } g.stroke(); }
+  g.lineWidth = 1; g.strokeStyle = 'rgba(255,80,100,.25)';
+  for (let k = 0; k < 14; k++){ let x = (rnd() - .5)*R*1.6, y = (rnd() - .5)*R*1.6; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 3; j++){ x += (rnd() - .5)*R*.3; y += (rnd() - .5)*R*.3; g.lineTo(x, y); } g.stroke(); }
+  // sacs around the rim, a ring of tissue around the eye socket
+  for (let k = 0; k < 9; k++){ const a = k/9*TAU + rnd()*.4, d = R*(.62 + rnd()*.22); sac(g, Math.cos(a)*d, Math.sin(a)*d, R*(.07 + rnd()*.07), col); }
+  g.fillStyle = '#0a0205'; g.beginPath(); g.ellipse(0, 0, R*.36, R*.3, 0, 0, TAU); g.fill();
+  g.strokeStyle = 'rgba(120,10,35,.9)'; g.lineWidth = 5; g.stroke();
+  g.restore();
+  g.strokeStyle = rgb(col, .22); g.lineWidth = 8; blobPath(g, R, rnd, 14, .08); g.stroke();
+  g.strokeStyle = rgb(col, .7); g.lineWidth = 1.6; blobPath(g, R, rnd, 14, .08); g.stroke();
+}
+// tendrils behind the body, swaying
+function hiveTendrils(e){
+  const R = e.r;
+  ctx.globalCompositeOperation = 'source-over'; ctx.lineCap = 'round';
+  for (let k = 0; k < 8; k++){
+    const a0 = k/8*TAU + .3 + e.seed, base = [e.x + Math.cos(a0)*R*.85, e.y + Math.sin(a0)*R*.85];
+    ctx.beginPath(); ctx.moveTo(base[0], base[1]);
+    let x = base[0], y = base[1];
+    for (let j = 1; j <= 6; j++){ const a = a0 + Math.sin(time*1.8 + k*1.3 + j*.7)*.35; x += Math.cos(a)*R*.09; y += Math.sin(a)*R*.09; ctx.lineTo(x, y); }
+    ctx.strokeStyle = '#1c050c'; ctx.lineWidth = R*.07; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,60,90,.35)'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter'; sprite(x, y, R*.07, e.T.col, .8); ctx.globalCompositeOperation = 'source-over';
+  }
+}
+// the eye: an amber iris with a slit, looking toward the fortress, blinking now and then
+function hiveEye(e){
+  const R = e.r, blink = Math.max(0, Math.sin(time*.9 + e.seed*3)) > .985 ? .1 : 1;
+  const look = Math.max(-1, Math.min(1, (V.PH*.8 - e.y)/600)), ex = Math.sin(time*.7)*R*.06, ey = R*.05*look;
+  ctx.save(); ctx.translate(e.x, e.y);
+  ctx.beginPath(); ctx.ellipse(0, 0, R*.33, R*.27*blink, 0, 0, TAU); ctx.clip();
+  const gr = ctx.createRadialGradient(ex, ey, 0, ex, ey, R*.3);
+  gr.addColorStop(0, '#ffe08a'); gr.addColorStop(.45, '#ff7a2a'); gr.addColorStop(1, '#5a0a12');
+  ctx.fillStyle = gr; ctx.fillRect(-R*.4, -R*.4, R*.8, R*.8);
+  ctx.fillStyle = '#080103'; ctx.beginPath(); ctx.ellipse(ex, ey, R*.05, R*.22, 0, 0, TAU); ctx.fill();
+  ctx.restore();
+  ctx.globalCompositeOperation = 'lighter'; sprite(e.x + ex, e.y + ey, R*.5, [255,120,60], .35*blink); ctx.globalCompositeOperation = 'source-over';
+}
 export function drawRocks(){
   // glow and tails first (additive), then bodies
   for (const e of enemies){
@@ -135,8 +217,12 @@ export function drawRocks(){
   ctx.globalCompositeOperation = 'source-over';
   for (const e of enemies){
     const s = rockSprite(e);
-    ctx.globalAlpha = 1; ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.rot);
+    if (e.type === 'hive') hiveTendrils(e);
+    // organics breathe instead of tumbling
+    const pulse = e.T.organic ? 1 + Math.sin(time*(e.T.boss ? 2 : 5) + e.seed)*(e.T.boss ? .025 : .06) : 1;
+    ctx.globalAlpha = 1; ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.T.organic ? (e.T.boss ? 0 : Math.sin(time*2 + e.seed)*.25) : e.rot); ctx.scale(pulse, 2 - pulse);
     ctx.drawImage(s.c, -s.o, -s.o, s.size, s.size); ctx.restore();
+    if (e.type === 'hive') hiveEye(e);
     if (e.flash > 0){ ctx.globalCompositeOperation = 'lighter'; sprite(e.x, e.y, e.r*1.3, [255,255,255], e.flash*5); ctx.globalCompositeOperation = 'source-over'; }
     if (e.freezeT > 0){ ctx.strokeStyle = 'rgba(200,240,255,.9)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 3, 0, TAU); ctx.stroke(); }
     if (!e.T.boss && e.hp < e.max){

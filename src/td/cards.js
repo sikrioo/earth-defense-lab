@@ -52,6 +52,18 @@ export function open(){
   el.hidden = false; el.querySelector('.pk-title').textContent = G.picks === 1 ? 'FIRST UPGRADE' : 'ENERGY FULL';
   row.firstChild.focus({ preventScroll:true });
 }
+// test bot that plays like a focused player: a few turrets, stack their upgrades, take core cards
+export function smartPick(){
+  const score = o => {
+    if (o.kind === 'new') return turrets.length < 3 ? 4 : .6;
+    if (o.kind === 'fort') return o.f.id === 'f_hp' && G.hp < G.hpMax*.5 ? 4 : o.f.id === 'f_energy' && G.picks < 8 ? 2.5 : .8;
+    if (o.u.max === 1) return 5;
+    const lv = Object.values(o.t.lv).reduce((a, b) => a + b, 0);
+    return 2.5 + lv*.4 + (/dmg|dps|rate|count|chain|twin|split|drone/.test(o.u.id) ? 1 : 0);
+  };
+  let best = 0; options.forEach((o, i) => { if (score(o) > score(options[best])) best = i; });
+  return best;
+}
 export function choose(i){
   const o = options[i]; if (!o || !G.picking) return;
   if (o.kind === 'new') addTurret(o.type);

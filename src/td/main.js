@@ -10,11 +10,11 @@ import { drawRocks, updRocks } from './enemies.js';
 import { bossAlive, startWave, updWaves } from './waves.js';
 import { drawBackdrop, drawFortress, invalidateBackdrop, updFortress } from './fortress.js';
 import { addTurret, drawTurrets, levelOf, placeTurrets, resetTurrets, turretAt, turrets, updShots, updTurrets } from './turrets.js';
-import { checkEnergy, choose, needFor, resetCards } from './cards.js';
+import { checkEnergy, choose, needFor, resetCards, smartPick } from './cards.js';
 
 // test hooks: ?auto=1 picks cards by itself, ?speed=4 runs faster, ?wave=12 starts later
 const QS = new URLSearchParams(location.search);
-const AUTO = QS.has('auto'), TEST_SPEED = +QS.get('speed') || 0, START_WAVE = Math.max(1, +QS.get('wave') || 1);
+const AUTO = QS.get('auto'), TEST_SPEED = +QS.get('speed') || 0, START_WAVE = Math.max(1, +QS.get('wave') || 1);
 
 const $ = id => document.getElementById(id);
 const hud = { wn:$('wn'), wfill:$('wfill'), hpfill:$('hpfill'), hpn:$('hpn'), enfill:$('enfill'), boss:$('boss'), bossName:$('bossname'), bfill:$('bfill'),
@@ -27,7 +27,7 @@ function newRun(){
   addTurret('gatling');
   hud.over.hidden = true; hud.pausebox.hidden = true;
   startWave(START_WAVE);
-  if (START_WAVE > 1) for (let i = 0; i < START_WAVE; i++){ G.energy += G.need; checkEnergy(); if (AUTO) choose(0); }
+  if (START_WAVE > 1) for (let i = 0; i < START_WAVE; i++){ G.energy += G.need; checkEnergy(); if (AUTO) choose(AUTO === 'smart' ? smartPick() : 0); }
 }
 
 function update(dt){
@@ -40,7 +40,7 @@ function update(dt){
   for (let i = fx.length - 1; i >= 0; i--) if (!fx[i].update(dt)) fx.splice(i, 1);
   G.runTime += dt;
   checkEnergy();
-  if (G.picking && AUTO) choose((Math.random()*3)|0);
+  if (G.picking && AUTO) choose(AUTO === 'smart' ? smartPick() : (Math.random()*3)|0);
   if (G.hp <= 0 && G.phase !== 'over'){ G.phase = 'over'; endRun(false); }
   if (G.phase === 'win' && hud.over.hidden) endRun(true);
   decayShake(dt);

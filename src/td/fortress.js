@@ -14,7 +14,7 @@ let backdrop = null, hits = [];
 export const invalidateBackdrop = () => { backdrop = null; shieldLayer = null; };
 
 export function hitFortress(e){
-  const dmg = Math.round(e.T.dmg*(1 + (G.wave - 1)*.03));
+  const dmg = Math.round(e.T.dmg*(1 + (G.wave - 1)*.05));
   G.hp = Math.max(0, G.hp - dmg); G.hitT = 1;
   const y = shieldY(e.x);
   explode(e.x, y, e.r*1.8 + 20, [255,110,70]);
@@ -109,9 +109,9 @@ function paintPlatform(turretAt){
   V.mounts.forEach((m, i) => {
     const t = turretAt(i), c = t ? t.T.col : [70,90,120];
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#0e121b';
-    hex(m.x, m.y, 21); ctx.fill();
+    hex(m.x, m.y, 27); ctx.fill();
     ctx.globalCompositeOperation = 'lighter';
-    neonPath(() => hex(m.x, m.y, 21), c, 1.3, t ? .9 : .45);
+    neonPath(() => hex(m.x, m.y, 27), c, 1.3, t ? .9 : .45);
     if (!t){ ctx.globalAlpha = .4; ctx.fillStyle = rgb(c); ctx.fillRect(m.x - 5, m.y - .75, 10, 1.5); ctx.fillRect(m.x - .75, m.y - 5, 1.5, 10); }
   });
 }

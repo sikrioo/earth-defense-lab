@@ -98,7 +98,7 @@ function hud(){
 
 function frame(now){
   requestAnimationFrame(frame);
-  const dt = Math.min(.033, (now - last)/1000); last = now; tickClock(dt);
+  const dt = Math.max(0, Math.min(.033, (now - last)/1000)); last = now; tickClock(dt);   // the first rAF stamp can predate `last`
   try { update(dt); render(); }
   catch (err){ if (!errShown){ errShown = true; console.error(err); } ctx.setTransform(1,0,0,1,0,0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
   hud();

@@ -38,16 +38,16 @@ function target(t, range, skip){
   }
   return best;
 }
-const aimAt = (t, e, dt) => { const a = Math.atan2(e.y - t.y, e.x - t.x); let d = a - t.ang; d = Math.atan2(Math.sin(d), Math.cos(d)); t.ang += d*Math.min(1, dt*14); };
-const muzzle = (t, len = 18) => ({ x:t.x + Math.cos(t.ang)*len, y:t.y + Math.sin(t.ang)*len });
+const aimAt = (t, e, dt) => { const a = Math.atan2(e.y - (t.y - PIVOT), e.x - t.x); let d = a - t.ang; d = Math.atan2(Math.sin(d), Math.cos(d)); t.ang += d*Math.min(1, dt*14); };
+const muzzle = (t, len = BARREL[t.type] || 18) => ({ x:t.x + Math.cos(t.ang)*len, y:t.y - PIVOT + Math.sin(t.ang)*len });
 
 export function updTurrets(dt){
   for (const t of turrets){
-    const s = t.s; t.cd -= dt;
+    const s = t.s; t.cd -= dt; t.kick = Math.max(0, (t.kick || 0) - dt*7);
     if (t.type === 'gatling'){
       const e = target(t, s.range); if (!e) continue; aimAt(t, e, dt);
       if (t.cd <= 0){
-        t.cd = 1/s.rate;
+        t.cd = 1/s.rate; t.kick = .7;
         // lead the target: where it will be when a bullet gets there
         const m0 = muzzle(t), d0 = Math.hypot(e.x - m0.x, e.y - m0.y)/1100;
         const lx = e.x + (e.T.comet ? e.vx : e.vx + e.px)*d0, ly = e.y + (e.T.comet ? e.vy : e.vy + e.py)*d0;
@@ -57,7 +57,6 @@ export function updTurrets(dt){
           const crit = Math.random() < s.crit;
           shots.push({ k:'bullet', x:m.x, y:m.y, vx:Math.cos(a)*1100, vy:Math.sin(a)*1100, dmg:s.dmg*(crit ? 3 : 1), crit, pierce:s.pierce, hit:new Set(), life:.8, col:t.T.col });
         }
-        sprite(muzzle(t, 22).x, muzzle(t, 22).y, 10, t.T.col, .8);
       }
     } else if (t.type === 'laser'){
       const skip = new Set(); t.beams = [];
@@ -71,23 +70,23 @@ export function updTurrets(dt){
     } else if (t.type === 'missile'){
       const e = target(t, s.range); if (!e) continue; aimAt(t, e, dt);
       if (t.cd <= 0){
-        t.cd = s.every;
+        t.cd = s.every; t.kick = 1;
         for (let i = 0; i < s.count; i++){
           const a = -Math.PI/2 + (i - (s.count - 1)/2)*.32;
-          shots.push({ k:'missile', x:t.x + (i - (s.count - 1)/2)*4, y:t.y - 6, vx:Math.cos(a)*240, vy:Math.sin(a)*240, tgt:e, dmg:s.dmg, blast:s.blast, cluster:s.cluster, life:3, delay:i*.05, col:t.T.col });
+          shots.push({ k:'missile', x:t.x + (i - (s.count - 1)/2)*4, y:t.y - PIVOT - 10, vx:Math.cos(a)*240, vy:Math.sin(a)*240, tgt:e, dmg:s.dmg, blast:s.blast, cluster:s.cluster, life:3, delay:i*.05, col:t.T.col });
         }
       }
     } else if (t.type === 'cryo'){
       const e = target(t, s.range); if (!e) continue; aimAt(t, e, dt);
       if (t.cd <= 0){
-        t.cd = s.every; const m = muzzle(t);
+        t.cd = s.every; t.kick = 1; const m = muzzle(t);
         const lead = .45, tx = e.x + (e.T.comet ? e.vx : 0)*lead, ty = e.y + (e.T.comet ? e.vy : e.speed*(e.slowT > 0 ? 1 - e.slowAmt : 1))*lead;
         shots.push({ k:'frost', x:m.x, y:m.y, sx:m.x, sy:m.y, tx, ty, t:0, dur:lead, s:{ ...s }, col:t.T.col });
       }
     } else if (t.type === 'tesla'){
       const e = target(t, s.range); if (!e || t.cd > 0) continue;
       t.cd = s.every;
-      const pts = [[t.x, t.y - 16]], seen = new Set(); let cur = e;
+      const pts = [[t.x, t.y - 34*TS]], seen = new Set(); let cur = e;
       for (let j = 0; j <= s.jumps && cur; j++){
         seen.add(cur); pts.push([cur.x, cur.y]);
         hurt(cur, s.dmg*(j ? .85 : 1), { chillBonus:isChilled(cur) ? s.conduct : 0 });
@@ -176,21 +175,92 @@ function updDrones(t, dt){
   }
 }
 
-/* ----- drawing ----- */
+/* ----- drawing: a pedestal on the pad, a metal gun head on a pivot that turns to the aim and kicks back ----- */
+const TS = 1.5;                                             // guns are drawn in a 1.5× local scale so they read on a phone
+export const PIVOT = 13*TS;                                 // pivot height above the pad point
+const BARREL = { gatling:34*TS, laser:40*TS, missile:20*TS, cryo:28*TS, tesla:0, drone:0 };
+const METAL = ['#4a5568', '#262d3b', '#11151e'];
+function metal(build, x0, y0, x1, y1){
+  const g = ctx.createLinearGradient(x0, y0, x1, y1);
+  g.addColorStop(0, METAL[0]); g.addColorStop(.45, METAL[1]); g.addColorStop(1, METAL[2]);
+  ctx.globalCompositeOperation = 'source-over'; ctx.beginPath(); build(); ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = '#07090e'; ctx.lineWidth = 1.2; ctx.stroke();
+}
+const rr = (x, y, w, h, r) => { ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+const accent = (build, col, w = 1.2, a = 1) => { ctx.globalCompositeOperation = 'lighter'; neonPath(build, col, w, a); };
+
+// pedestal, drawn with its foot at (0,0)
+function paintBase(type, col){
+  if (type === 'tesla'){
+    metal(() => { ctx.moveTo(-15, 8); ctx.lineTo(15, 8); ctx.lineTo(7, -30); ctx.lineTo(-7, -30); ctx.closePath(); }, -15, -30, 15, 8);
+    for (let k = 0; k < 4; k++){ const y = -4 - k*7.5, w = 15 - k*2.4; metal(() => rr(-w, y - 2.5, w*2, 5, 2.5), -w, y - 3, w, y + 3); accent(() => { ctx.moveTo(-w + 2, y); ctx.lineTo(w - 2, y); }, col, 1, .8); }
+    metal(() => ctx.arc(0, -34, 6, 0, TAU), -6, -40, 6, -28);
+    return;
+  }
+  if (type === 'drone'){
+    metal(() => { ctx.moveTo(-20, 8); ctx.lineTo(20, 8); ctx.lineTo(16, -4); ctx.arc(0, -4, 16, 0, Math.PI, true); ctx.closePath(); }, -20, -20, 20, 8);
+    accent(() => { ctx.arc(0, -4, 11, Math.PI*1.1, Math.PI*1.9); }, col, 1.4, .9);
+    metal(() => rr(-4, -24, 8, 6, 2), -4, -24, 4, -18);
+    return;
+  }
+  metal(() => { ctx.moveTo(-17, 8); ctx.lineTo(17, 8); ctx.lineTo(11, -6); ctx.lineTo(-11, -6); ctx.closePath(); }, -17, -6, 17, 8);
+  accent(() => { ctx.moveTo(-12, -4); ctx.lineTo(12, -4); }, col, 1, .7);
+  metal(() => ctx.arc(0, -13, 10, 0, TAU), -10, -23, 10, -3);
+}
+// gun head, pivot at (0,0), pointing up (−y)
+function paintHead(type, col){
+  if (type === 'gatling'){
+    for (const x of [-5.5, 0, 5.5]) metal(() => rr(x - 2, -34, 4, 30, 1.5), x - 2, 0, x + 2, 0);
+    metal(() => rr(-9, -31, 18, 4, 1.5), -9, -31, 9, -27);
+    metal(() => rr(-11, -8, 22, 17, 5), -11, -8, 11, 9);
+    accent(() => { ctx.moveTo(-7, -2); ctx.lineTo(7, -2); ctx.moveTo(-7, 3); ctx.lineTo(7, 3); }, col, 1.1, .9);
+  } else if (type === 'laser'){
+    metal(() => rr(-3, -40, 6, 36, 2), -3, 0, 3, 0);
+    for (const y of [-14, -22, -30]){ metal(() => rr(-6, y - 2, 12, 4, 1.5), -6, y - 2, 6, y + 2); accent(() => { ctx.moveTo(-4, y); ctx.lineTo(4, y); }, col, 1, .9); }
+    metal(() => rr(-10, -7, 20, 15, 4), -10, -7, 10, 8);
+    accent(() => ctx.arc(0, 0, 4, 0, TAU), col, 1.2, .9);
+  } else if (type === 'missile'){
+    metal(() => rr(-14, -20, 28, 26, 4), -14, -20, 14, 6);
+    for (const [x, y] of [[-6.5, -13], [6.5, -13], [-6.5, -3], [6.5, -3]]){
+      ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = '#05070b'; ctx.beginPath(); ctx.arc(x, y, 4, 0, TAU); ctx.fill();
+      accent(() => ctx.arc(x, y, 4, 0, TAU), col, 1, .9);
+    }
+    accent(() => { ctx.moveTo(-12, 4); ctx.lineTo(12, 4); }, col, 1, .6);
+  } else if (type === 'cryo'){
+    for (const x of [-12, 12]){ metal(() => rr(x - 4, -8, 8, 16, 4), x - 4, -8, x + 4, 8); accent(() => { ctx.moveTo(x, -5); ctx.lineTo(x, 5); }, [200,240,255], 1.4, .9); }
+    metal(() => rr(-6, -28, 12, 24, 3), -6, 0, 6, 0);
+    metal(() => rr(-8, -29, 16, 5, 2), -8, -29, 8, -24);
+    metal(() => rr(-9, -7, 18, 14, 5), -9, -7, 9, 7);
+    accent(() => { ctx.moveTo(-4, -17); ctx.lineTo(4, -17); ctx.moveTo(-4, -12); ctx.lineTo(4, -12); }, col, 1, .9);
+  }
+}
+const sprites = new Map();
+function cached(kind, type){
+  const key = kind + type + RS; let s = sprites.get(key); if (s) return s;
+  const h = 48*TS, c = document.createElement('canvas'); c.width = c.height = Math.ceil(h*2*RS);
+  const g = c.getContext('2d'), keep = ctx; g.setTransform(RS*TS, 0, 0, RS*TS, h*RS, h*RS);
+  setCtx(g); (kind === 'base' ? paintBase : paintHead)(type, TURRET[type].col); setCtx(keep);
+  s = { c, h }; sprites.set(key, s); return s;
+}
+const blitAt = (s, x, y, ang = 0) => { ctx.save(); ctx.translate(x, y); if (ang) ctx.rotate(ang); ctx.drawImage(s.c, -s.h, -s.h, s.h*2, s.h*2); ctx.restore(); };
+
 export function drawTurrets(){
   for (const t of turrets){
-    // the body is a cached sprite turned to the aim; small live glows go on top
-    const sp = bodySprite(t.type), spin = t.type === 'tesla' || t.type === 'drone' ? 0 : t.ang + Math.PI/2;
-    ctx.globalAlpha = 1; ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(spin); ctx.drawImage(sp.c, -sp.h, -sp.h, sp.h*2, sp.h*2); ctx.restore();
-    const tip = (len) => ({ x:t.x + Math.cos(t.ang)*len, y:t.y + Math.sin(t.ang)*len });
-    if (t.type === 'gatling' && t.cd > 1/t.s.rate - .05){ const m = tip(22); sprite(m.x, m.y, 9, [255,255,255], .6); }
-    else if (t.type === 'laser'){ const m = tip(6); sprite(m.x, m.y, 7, t.T.col, .7); }
-    else if (t.type === 'tesla') sprite(t.x, t.y - 18, 7 + Math.sin(time*20)*1.5, [226,220,255], .9);
+    const px = t.x, py = t.y - PIVOT, rot = t.ang + Math.PI/2, k = t.kick || 0;
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    blitAt(cached('base', t.type), t.x, t.y);
+    if (BARREL[t.type]) blitAt(cached('head', t.type), px - Math.cos(t.ang)*k*7, py - Math.sin(t.ang)*k*7, rot);
+    ctx.globalCompositeOperation = 'lighter';
+    // live glows: muzzle flash, charged lens, tesla orb, hangar light
+    if (t.type === 'tesla') sprite(t.x, t.y - 34*TS, 12 + Math.sin(time*20)*2.5, [226,220,255], .9);
+    else if (t.type === 'drone') sprite(t.x, t.y - 21*TS, 6, t.T.col, .6 + .4*Math.sin(time*6));
+    else if (k > .55){ const m = muzzle(t, BARREL[t.type] + 4); sprite(m.x, m.y, t.type === 'gatling' ? 10 : 16, [255,255,255], k*.8); sprite(m.x, m.y, 22, t.T.col, k*.5); }
+    if (t.type === 'laser' && t.beams && t.beams.length){ const m = muzzle(t); sprite(m.x, m.y, 9 + (t.mult || 1)*2, t.T.col, .9); }
     const lv = levelOf(t);
     if (lv){ ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.font = '700 10px "Chakra Petch", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#05070c'; ctx.fillRect(t.x - 9, t.y + 15, 18, 11); ctx.fillStyle = rgb(t.T.col); ctx.fillText(`+${lv}`, t.x, t.y + 21); ctx.globalCompositeOperation = 'lighter'; }
+      ctx.fillStyle = '#05070c'; ctx.fillRect(t.x - 10, t.y + 15, 20, 12); ctx.fillStyle = rgb(t.T.col); ctx.fillText(`+${lv}`, t.x, t.y + 21); ctx.globalCompositeOperation = 'lighter'; }
     if (t.type === 'laser' && t.beams) t.beams.forEach((e, i) => {
-      const m = muzzle(t, 14), w = i ? 1.6 : 1.2 + (t.mult || 1)*1.1;
+      const m = muzzle(t), w = i ? 1.6 : 1.2 + (t.mult || 1)*1.1;
       neonLine(m.x, m.y, e.x, e.y, t.T.col, w, .9); sprite(e.x, e.y, 10 + w*3, t.T.col, .7);
     });
     for (const d of t.drones) drawDrone(d, t.s.radius);
@@ -209,50 +279,14 @@ function drawDrone(d, R){
   neonPath(() => { for (let k = 0; k < 4; k++){ const a = k*Math.PI/2; ctx.moveTo(d.x + Math.cos(a)*R*.3, d.y + Math.sin(a)*R*.3); ctx.lineTo(d.x + Math.cos(a)*R*.6, d.y + Math.sin(a)*R*.6); } }, OFF, 1, .8);
   if (p > .55) sprite(d.x, d.y, R*.8*p, [255,255,255], p*.8);
 }
-
-// turret bodies, also used for card icons (pass another context through setCtx)
-const bodies = new Map();
-function bodySprite(type){
-  const key = type + RS; let s = bodies.get(key); if (s) return s;
-  const h = 30, c = document.createElement('canvas'); c.width = c.height = Math.ceil(h*2*RS);
-  const g = c.getContext('2d'), keep = ctx; g.setTransform(RS, 0, 0, RS, 0, 0); g.globalCompositeOperation = 'lighter';
-  setCtx(g); drawTurretBody(type, h, h, -Math.PI/2, TURRET[type].col, 1, false); setCtx(keep);
-  s = { c, h }; bodies.set(key, s); return s;
-}
-export function drawTurretBody(type, x, y, ang, col, a, live = true){
-  const W2 = [255,255,255];
-  ctx.save(); ctx.translate(x, y);
-  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = a;
-  ctx.fillStyle = '#161c2a'; ctx.beginPath(); ctx.arc(0, 0, 13, 0, TAU); ctx.fill();
-  ctx.globalCompositeOperation = 'lighter';
-  neonCircle(0, 0, 13, col, 1.2, a);
-  ctx.rotate(ang + Math.PI/2);
-  if (type === 'gatling'){
-    neonPath(() => { ctx.rect(-6, -8, 12, 12); ctx.moveTo(-3, -8); ctx.lineTo(-3, -22); ctx.moveTo(3, -8); ctx.lineTo(3, -22); }, col, 1.5, a);
-    if (live && time % .2 < .1) sprite(0, -22, 4, W2, .4*a);
-  } else if (type === 'laser'){
-    neonPath(() => { ctx.moveTo(0, -20); ctx.lineTo(8, -4); ctx.lineTo(0, 6); ctx.lineTo(-8, -4); ctx.closePath(); }, col, 1.5, a);
-    sprite(0, -6, 8, mixc(col, W2, .5), .9*a);
-  } else if (type === 'missile'){
-    neonPath(() => { ctx.rect(-9, -11, 18, 16); ctx.moveTo(0, -11); ctx.lineTo(0, 5); ctx.moveTo(-9, -3); ctx.lineTo(9, -3); }, col, 1.4, a);
-  } else if (type === 'cryo'){
-    neonPath(() => { ctx.arc(0, -4, 7, 0, TAU); ctx.moveTo(0, -11); ctx.lineTo(0, -21); for (let k = 0; k < 3; k++){ const aa = k*TAU/3; ctx.moveTo(Math.cos(aa)*7, -4 + Math.sin(aa)*7); ctx.lineTo(Math.cos(aa)*12, -4 + Math.sin(aa)*12); } }, col, 1.4, a);
-    sprite(0, -4, 7, [200,240,255], .6*a);
-  } else if (type === 'tesla'){
-    ctx.rotate(-(ang + Math.PI/2));
-    neonPath(() => { for (let k = 0; k < 3; k++){ ctx.moveTo(-8 + k*2, -2 - k*6); ctx.lineTo(8 - k*2, -2 - k*6); } ctx.moveTo(0, 4); ctx.lineTo(0, -16); }, col, 1.4, a);
-    if (live) sprite(0, -18, 7 + Math.sin(time*20)*1.5, mixc(col, W2, .4), .9*a);
-  } else if (type === 'drone'){
-    ctx.rotate(-(ang + Math.PI/2));
-    neonPath(() => { ctx.arc(0, 0, 8, 0, TAU); for (let k = 0; k < 6; k++){ const aa = k*TAU/6 + (live ? time : 0); ctx.moveTo(Math.cos(aa)*8, Math.sin(aa)*8); ctx.arc(Math.cos(aa)*8, Math.sin(aa)*8, 1.5, 0, TAU); } }, col, 1.2, a);
-  }
-  ctx.restore();
-}
+// card art: the whole gun, pointing up
 export function drawTurretIcon(canvas, type){
   const g = canvas.getContext('2d'), s = canvas.width/56;
-  g.setTransform(s, 0, 0, s, 0, 0); g.clearRect(0, 0, 56, 56);
-  const keep = ctx; setCtx(g); g.globalCompositeOperation = 'lighter';
-  sprite(28, 30, 26, TURRET[type].col, .25);
-  drawTurretBody(type, 28, 32, -Math.PI/2, TURRET[type].col, 1);
+  g.setTransform(s*.82, 0, 0, s*.82, s*28, s*50); g.clearRect(-40, -70, 80, 90);
+  const keep = ctx; setCtx(g);
+  g.globalCompositeOperation = 'lighter'; sprite(0, -20, 34, TURRET[type].col, .22);
+  paintBase(type, TURRET[type].col);
+  if (BARREL[type]){ g.save(); g.translate(0, -13); paintHead(type, TURRET[type].col); g.restore(); }
+  if (type === 'tesla'){ g.globalCompositeOperation = 'lighter'; sprite(0, -34, 9, [226,220,255], .9); }
   setCtx(keep);
 }
