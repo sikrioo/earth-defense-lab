@@ -13,16 +13,26 @@ export const ROCK = {
   pod:     { ko:'기생 포드', desc:'기생 포드. 터지면 포자 3개가 쏟아진다. 불에 약하다.',  hp:95,    r:16, speed:40,  dmg:20,  energy:3,   col:[255,60,85],   organic:true, split:3, splitInto:'spore' },
   colossus:{ ko:'거대 운석', desc:'보스. 거대한 운석이 작은 운석을 흩뿌리며 천천히 내려온다.',  hp:3000,  r:66, speed:12,  dmg:300, energy:60,  col:[255,120,60],  sides:11, boss:true, spawns:'rock', every:3.2 },
   hive:    { ko:'생체 행성', desc:'보스. 살아 있는 행성. 촉수를 흔들며 포자를 끊임없이 뿜고, 눈이 요새를 노려본다. 불에 약하다.',  hp:7000,  r:82, speed:10,  dmg:500, energy:110, col:[255,50,75],   boss:true, organic:true, spawns:'spore', every:1.5 },
+  icecomet:{ ko:'얼음 혜성', desc:'오르트 구름에서 온 얼음 혜성. 궤적 경고 뒤 돌진하고, 부서지면 얼음 파편 3개로 흩어진다.', hp:110, r:15, speed:270, dmg:45, energy:4, col:[170,225,255], sides:7, comet:true, split:3, splitInto:'iceshard' },
+  iceshard:{ ko:'얼음 파편', desc:'얼음 혜성이 부서진 조각. 작고 빠르다.', hp:20, r:8, speed:90, dmg:6, energy:.5, col:[190,235,255], sides:5 },
+  glacier: { ko:'빙하 덩어리', desc:'두꺼운 얼음 껍질. 체력이 70% 넘게 남은 동안은 장갑 8, 껍질이 깨지면 장갑이 사라진다. 불에 약하다.', hp:420, r:30, speed:22, dmg:40, energy:6, col:[200,235,255], sides:10, shell:8, icy:true },
+  plasma:  { ko:'플라즈마 구', desc:'흔들리며 다가오는 플라즈마. 부서질 때 전자기 펄스가 터져 주변 포탑을 1.5초 멈춘다 — 멀리서 잡을 것.', hp:60, r:13, speed:82, dmg:14, energy:2, col:[230,120,255], plasma:true, weave:40, emp:150, custom:true },
+  phase:   { ko:'위상 운석', desc:'공간을 접어 앞으로 순간이동한다. 사라져 있는 동안은 맞지 않는다.', hp:90, r:16, speed:46, dmg:18, energy:3, col:[120,255,230], sides:6, phase:true },
+  lens:    { ko:'중력 렌즈', desc:'주변 공간을 휘게 하는 고밀도 천체. 근처를 지나는 탄환과 미사일이 휘어진다.', hp:240, r:20, speed:34, dmg:25, energy:5, col:[255,220,160], lens:150, custom:true },
+  dark:    { ko:'암흑 물질', desc:'빛을 내지 않는 덩어리. 방어막 가까이 와야 보이고, 그 전에는 조준할 수 없다 (범위 공격은 맞는다).', hp:180, r:18, speed:46, dmg:30, energy:5, col:[170,130,230], sides:8, dark:true },
+  node:    { ko:'불안정 핵', desc:'블랙홀 둘레를 도는 불안정한 핵. 모두 부숴야 블랙홀 본체가 잠깐 드러난다.', hp:900, r:16, speed:0, dmg:0, energy:8, col:[255,170,90], sides:6, node:true },
+  saturn:  { ko:'토성의 잔해', desc:'보스. 사라진 토성의 부서진 핵. 고리 조각을 흩뿌리고, 고리가 남아 있는 동안은 피해를 절반만 받는다.', hp:8000, r:74, speed:9, dmg:700, energy:140, col:[255,200,120], boss:true, saturn:true, custom:true, every:2.8 },
+  blackhole:{ ko:'블랙홀', desc:'최종 보스. 목성과 토성을 삼킨 것. 지구 가까이 와서 궤도를 돌며 탄환과 광물을 빨아들인다. 둘레를 도는 불안정 핵을 모두 부숴야 본체가 7초 동안 드러난다.', hp:9000, r:80, speed:7, dmg:5000, energy:300, col:[255,130,60], boss:true, blackhole:true, custom:true, spawns:'dark', every:4.5 },
   planet:  { ko:'떠돌이 행성', desc:'보스. 목성 궤도에서 밀려난 떠돌이 행성. 닿으면 요새가 거의 무너진다.', hp:9000, r:86, speed:9,   dmg:600, energy:120, col:[255,70,60],   boss:true, planet:true, spawns:'dart', every:2.4 },
 };
 
 // 30 waves. Every wave gets a budget of rocks; types join as the waves go on (organics from wave 8);
-// bosses: 10 colossus, 15 living planet, 20 rogue planet, 25 living planet + colossus, 30 rogue + living planet
+// bosses: 10 colossus, 15 living planet, 20 rogue planet, 25 Saturn's remnant, 30 the black hole
 export const WAVES = {
   last: 30,
   count: w => Math.round(10 + w*2.8),
   window: w => 12 + w*.3,                      // seconds the wave's rocks are spread over
-  hp: w => Math.pow(1.12, w - 1),
+  hp: w => Math.pow(1.1, w - 1),
   speed: w => 1 + Math.min(.5, w*.018),
   mix: w => [
     ['rock', 10],
@@ -32,15 +42,32 @@ export const WAVES = {
     ['brute', w >= 6 ? 2.4 : 0],
     ['spore', w >= 8 ? 3 : 0],
     ['pod', w >= 11 ? 1.6 : 0],
+    ['icecomet', w >= 16 ? 1 : 0],
+    ['glacier', w >= 16 ? 1.6 : 0],
+    ['plasma', w >= 21 ? 2.2 : 0],
+    ['phase', w >= 21 ? 1.8 : 0],
+    ['lens', w >= 26 ? 1.2 : 0],
+    ['dark', w >= 26 ? 2.4 : 0],
   ],
-  extra: w => w === 30 ? ['planet', 'hive'] : w === 25 ? ['hive', 'colossus'] : w === 20 ? ['planet'] : w === 15 ? ['hive'] : w === 10 ? ['colossus'] : w % 5 === 0 ? ['elite'] : w > 12 && w % 3 === 0 ? ['elite'] : [],
+  extra: w => w === 30 ? ['blackhole'] : w === 25 ? ['saturn'] : w === 20 ? ['planet'] : w === 15 ? ['hive'] : w === 10 ? ['colossus'] : w % 5 === 0 ? ['elite'] : w > 12 && w % 3 === 0 ? ['elite'] : [],
   breakTime: 2,
 };
+
+// six sectors of five waves: each has its own nebula colours and its own newcomers
+export const SECTORS = [
+  { ko:'소행성대',       en:'ASTEROID BELT', neb:[[120,60,200],[40,140,220],[200,60,140]], sky:['#04050c', '#070a1a', '#0b1630'] },
+  { ko:'철 운석 지대',    en:'IRON FIELD',    neb:[[220,110,40],[160,80,40],[255,150,60]],  sky:['#07050a', '#120b10', '#1c1210'] },
+  { ko:'생체 성운',       en:'BIO NEBULA',    neb:[[60,200,110],[30,140,90],[200,60,90]],   sky:['#030807', '#071410', '#0c1c14'] },
+  { ko:'오르트 얼음 구름', en:'OORT CLOUD',    neb:[[150,210,255],[90,150,230],[220,240,255]], sky:['#04070e', '#0a1424', '#122238'] },
+  { ko:'플라즈마 성운',    en:'PLASMA NEBULA', neb:[[200,70,255],[120,60,240],[255,80,200]], sky:['#07040e', '#120824', '#1a0c30'] },
+  { ko:'사건의 지평선',    en:'EVENT HORIZON', neb:[[200,50,40],[90,20,70],[255,120,40]],    sky:['#050203', '#0e0406', '#160608'] },
+];
+export const sectorOf = w => Math.max(0, Math.min(5, Math.floor((w - 1)/5)));
 
 export const FORT = { hp:1000, mounts:6 };
 
 // energy: every kill fills the bar, a full bar is one pick of three cards; each pick needs a bit more
-export const ENERGY = { first:5, step:2.8, grow:1.04 };
+export const ENERGY = { first:5, step:2.2, grow:1.04 };
 
 // turrets: base stats, and the cards that upgrade each one (max = times it can be taken).
 // every gun has a trade-off (cons) that shows on its card and in the codex
@@ -105,7 +132,7 @@ export const ORE = { yieldMul:1.35, life:12, coreLife:45, magnet:46, coreDrift:2
   },
   base:{ drones:2, speed:230, scoop:24, cap:3, yield:0, armor:0, kinds:['ore'] } };   // the fortress's own two slow drones
 // energy cores: dropped by elites (one common core) and bosses (a singularity core plus a common one).
-// Each turret has core slots: 1 to start, 2 after 4 upgrades, 3 after 8.
+// Each turret has one core slot per tier (Mk I/II/III).
 export const CORES = {
   power: { ko:'과충전 코어', en:'OVERCHARGE', col:[255,96,84],   d:'피해 +25%', ops:{ dmg:1.25 } },
   speed: { ko:'가속 코어',   en:'ACCELERATOR', col:[255,206,90], d:'발사·충전·재사용 속도 +20%', ops:{ speed:1.2 } },
@@ -117,108 +144,176 @@ export const CORE_KEYS = {
   speed:{ up:['rate', 'speed'], down:['every', 'charge', 'recharge', 'cool', 'rearm'] },
   reach:{ up:['range', 'radius', 'blast', 'hop', 'scoop'], down:[] },
 };
-export const slotsFor = lv => 1 + (lv >= 4 ? 1 : 0) + (lv >= 8 ? 1 : 0);
+export const slotsFor = lv => tierFor(lv);
 
 // upgrade cards. apply(s) changes that turret's stats; key cards (max 1) are marked core
+// Upgrade cards. Each step adds a slice of the BASE value (so stacking grows steadily instead of exploding):
+// apply(s, b) — s: the turret's stats being built, b: its base stats. Stats are rebuilt from scratch whenever
+// something changes (upgrades, then evolution, then cores), see recompute() in turrets.js.
+// max = how many times a card can be taken; max 1 = a key upgrade.
+const pct = (k, f) => (s, b) => { s[k] += b[k]*f; };          // +f of base
+const cut = (k, f) => (s, b) => { s[k] -= b[k]*f; };          // −f of base (intervals, heat, spread)
 export const UPG = {
   gatling: [
-    { id:'g_dmg',   ko:'고폭탄',     d:'피해 +30%',                     max:5, apply:s => { s.dmg *= 1.3; } },
-    { id:'g_rate',  ko:'회전 가속',   d:'연사 속도 +25% (과열도 빨라짐)',   max:4, apply:s => { s.rate *= 1.25; } },
-    { id:'g_cool',  ko:'냉각 재킷',   d:'과열이 30% 늦게 오고 식는 시간 -25%', max:2, apply:s => { s.heatPer *= .7; s.cool *= .75; } },
-    { id:'g_twin',  ko:'쌍열 포신',   d:'한 번에 쏘는 탄 +1',             max:2, apply:s => { s.bullets += 1; } },
-    { id:'g_pierce',ko:'관통탄',     d:'탄이 운석 1개를 더 뚫고 지나감',  max:2, apply:s => { s.pierce += 1; } },
-    { id:'g_crit',  ko:'치명 사격',   d:'15% 확률로 피해 3배',            max:1, apply:s => { s.crit = .15; } },
+    { id:'g_dmg',   ko:'고폭탄',     d:'피해 +25%',                       max:10, apply:pct('dmg', .25) },
+    { id:'g_rate',  ko:'회전 가속',   d:'연사 +20% (과열도 그만큼 빨라짐)',   max:8,  apply:pct('rate', .2) },
+    { id:'g_cool',  ko:'냉각 재킷',   d:'과열 -12%, 식는 시간 -10%',         max:5,  apply:(s, b) => { s.heatPer -= b.heatPer*.12; s.cool -= b.cool*.1; } },
+    { id:'g_range', ko:'강선 포신',   d:'사거리 +8%',                      max:4,  apply:pct('range', .08) },
+    { id:'g_twin',  ko:'쌍열 포신',   d:'한 번에 쏘는 탄 +1',               max:2,  apply:s => { s.bullets += 1; } },
+    { id:'g_pierce',ko:'관통탄',     d:'탄이 운석 1개를 더 뚫음',           max:3,  apply:s => { s.pierce += 1; } },
+    { id:'g_crit',  ko:'치명 사격',   d:'15% 확률로 피해 3배',              max:1,  apply:s => { s.crit = .15; } },
   ],
   laser: [
-    { id:'l_dps',   ko:'출력 증폭',   d:'빔 피해 +30%',                   max:5, apply:s => { s.dps *= 1.3; } },
-    { id:'l_cell',  ko:'대용량 전지', d:'한 번에 쏘는 시간 +40%',           max:3, apply:s => { s.cap *= 1.4; } },
-    { id:'l_charge',ko:'급속 충전',   d:'충전 시간 -25%',                  max:3, apply:s => { s.recharge *= .75; } },
-    { id:'l_split', ko:'프리즘',     d:'빔이 하나 더 갈라짐 (전지 소모도 +50%)', max:2, apply:s => { s.beams += 1; } },
-    { id:'l_melt',  ko:'융해',       d:'냉각된 운석에 빔 피해 +60%',        max:1, apply:s => { s.melt = .6; } },
+    { id:'l_dps',   ko:'출력 증폭',   d:'빔 피해 +25%',                    max:10, apply:pct('dps', .25) },
+    { id:'l_cell',  ko:'대용량 전지', d:'한 번에 쏘는 시간 +20%',           max:6,  apply:pct('cap', .2) },
+    { id:'l_charge',ko:'급속 충전',   d:'충전 시간 -10%',                   max:5,  apply:cut('recharge', .1) },
+    { id:'l_ramp',  ko:'집속 렌즈',   d:'붙어 있을 때 최대 출력 배율 +0.25',   max:4,  apply:s => { s.rampMax += .25; } },
+    { id:'l_range', ko:'장초점 렌즈', d:'사거리 +8%',                      max:3,  apply:pct('range', .08) },
+    { id:'l_split', ko:'프리즘',     d:'빔이 하나 더 갈라짐 (전지 소모 +50%)', max:2,  apply:s => { s.beams += 1; } },
+    { id:'l_melt',  ko:'융해',       d:'냉각된 운석에 빔 피해 +60%',         max:1,  apply:s => { s.melt = .6; } },
   ],
   missile: [
-    { id:'m_count', ko:'다연장',     d:'한 번에 미사일 +2',              max:3, apply:s => { s.count += 2; } },
-    { id:'m_dmg',   ko:'고성능 탄두', d:'피해 +35%',                     max:5, apply:s => { s.dmg *= 1.35; } },
-    { id:'m_blast', ko:'폭발 반경',   d:'폭발 범위 +30%',                 max:3, apply:s => { s.blast *= 1.3; } },
-    { id:'m_rate',  ko:'자동 장전',   d:'발사 간격 -20%',                 max:3, apply:s => { s.every *= .8; } },
-    { id:'m_close', ko:'근접 신관',   d:'사각지대 절반으로 줄어듦',          max:1, apply:s => { s.minRange *= .5; } },
-    { id:'m_cluster',ko:'집속탄',    d:'폭발할 때 작은 폭탄 3개가 흩어짐',  max:1, apply:s => { s.cluster = 3; } },
+    { id:'m_dmg',   ko:'고성능 탄두', d:'피해 +25%',                       max:10, apply:pct('dmg', .25) },
+    { id:'m_count', ko:'다연장',     d:'한 번에 미사일 +1',                max:4,  apply:s => { s.count += 1; } },
+    { id:'m_rate',  ko:'자동 장전',   d:'발사 간격 -10%',                  max:6,  apply:cut('every', .1) },
+    { id:'m_blast', ko:'폭발 반경',   d:'폭발 범위 +10%',                  max:5,  apply:pct('blast', .1) },
+    { id:'m_close', ko:'근접 신관',   d:'사각지대 -25%',                   max:2,  apply:cut('minRange', .25) },
+    { id:'m_cluster',ko:'집속탄',    d:'폭발할 때 작은 폭탄 3개가 흩어짐',   max:1,  apply:s => { s.cluster = 3; } },
   ],
   cryo: [
-    { id:'c_slow',  ko:'극저온',     d:'감속 +12%p',                     max:3, apply:s => { s.slow += .12; } },
-    { id:'c_area',  ko:'확산 냉각',   d:'냉각 범위 +30%',                 max:3, apply:s => { s.radius *= 1.3; } },
-    { id:'c_rate',  ko:'연속 냉각',   d:'발사 간격 -20%',                 max:3, apply:s => { s.every *= .8; } },
-    { id:'c_freeze',ko:'순간 동결',   d:'20% 확률로 1.2초 얼림 (2단계 35%)', max:2, apply:s => { s.freeze = s.freeze ? .35 : .2; } },
+    { id:'c_dmg',   ko:'냉각 탄두',   d:'피해 +25%',                       max:5,  apply:pct('dmg', .25) },
+    { id:'c_slow',  ko:'극저온',     d:'감속 +5%p',                       max:5,  apply:s => { s.slow += .05; } },
+    { id:'c_area',  ko:'확산 냉각',   d:'냉각 범위 +10%',                  max:6,  apply:pct('radius', .1) },
+    { id:'c_rate',  ko:'연속 냉각',   d:'발사 간격 -10%',                  max:6,  apply:cut('every', .1) },
+    { id:'c_dur',   ko:'잔류 냉기',   d:'감속 시간 +0.4초',                 max:4,  apply:s => { s.slowT += .4; } },
+    { id:'c_freeze',ko:'순간 동결',   d:'20% 확률로 1.2초 얼림 (2단계 35%)', max:2,  apply:s => { s.freeze = s.freeze ? .35 : .2; } },
     { id:'c_shatter',ko:'파쇄',      d:'냉각된 운석이 모든 피해를 +25% 더 받음 (2단계 +50%)', max:2, apply:s => { s.shatter += .25; } },
   ],
   tesla: [
-    { id:'t_chain', ko:'확장 코일',   d:'번개가 튀는 횟수 +2',             max:3, apply:s => { s.jumps += 2; } },
-    { id:'t_dmg',   ko:'고전압',     d:'피해 +35%',                     max:5, apply:s => { s.dmg *= 1.35; } },
-    { id:'t_rate',  ko:'축전 가속',   d:'발사 간격 -20%',                 max:3, apply:s => { s.every *= .8; } },
-    { id:'t_reach', ko:'안테나 연장', d:'사거리 +30%',                    max:2, apply:s => { s.range *= 1.3; } },
-    { id:'t_stun',  ko:'과부하',     d:'맞은 운석 0.4초 정지',            max:1, apply:s => { s.stun = .4; } },
+    { id:'t_dmg',   ko:'고전압',     d:'피해 +25%',                       max:10, apply:pct('dmg', .25) },
+    { id:'t_chain', ko:'확장 코일',   d:'번개가 튀는 횟수 +1',              max:6,  apply:s => { s.jumps += 1; } },
+    { id:'t_rate',  ko:'축전 가속',   d:'발사 간격 -10%',                  max:6,  apply:cut('every', .1) },
+    { id:'t_reach', ko:'안테나 연장', d:'사거리 +10%',                     max:4,  apply:pct('range', .1) },
+    { id:'t_stun',  ko:'과부하',     d:'맞은 운석 0.4초 정지',              max:1,  apply:s => { s.stun = .4; } },
     { id:'t_conduct',ko:'도체',      d:'냉각된 운석에 피해 +50%, 튈 때 감소 없음', max:1, apply:s => { s.conduct = .5; } },
   ],
   drone: [
-    { id:'r_drone', ko:'드론 추가',   d:'리볼버 드론 +1',                 max:3, apply:s => { s.drones += 1; } },
-    { id:'r_dmg',   ko:'화력',       d:'피해 +30%',                     max:5, apply:s => { s.dmg *= 1.3; } },
-    { id:'r_rate',  ko:'연사',       d:'발사 간격 ×0.85',                max:4, apply:s => { s.every *= .85; } },
-    { id:'r_bore',  ko:'구경',       d:'사격 범위 +20%',                 max:3, apply:s => { s.radius *= 1.2; } },
-    { id:'r_gyro',  ko:'자이로 안정', d:'움직이면서도 쏠 수 있음',          max:1, apply:s => { s.hoverSpeed = 1e9; } },
-    { id:'r_pull',  ko:'견인',       d:'범위 안 운석을 중심으로 끌어당김',  max:2, apply:s => { s.pull += 1; } },
+    { id:'r_dmg',   ko:'화력',       d:'피해 +25%',                       max:10, apply:pct('dmg', .25) },
+    { id:'r_rate',  ko:'연사',       d:'발사 간격 -8%',                   max:6,  apply:cut('every', .08) },
+    { id:'r_drone', ko:'드론 추가',   d:'리볼버 드론 +1',                  max:3,  apply:s => { s.drones += 1; } },
+    { id:'r_bore',  ko:'구경',       d:'사격 범위 +8%',                   max:5,  apply:pct('radius', .08) },
+    { id:'r_speed', ko:'추진기',     d:'드론 속도 +12%',                  max:4,  apply:pct('speed', .12) },
+    { id:'r_pull',  ko:'견인',       d:'범위 안 운석을 중심으로 끌어당김',    max:2,  apply:s => { s.pull += 1; } },
+    { id:'r_gyro',  ko:'자이로 안정', d:'움직이면서도 쏠 수 있음',           max:1,  apply:s => { s.hoverSpeed = 1e9; } },
   ],
   rail: [
-    { id:'rg_dmg',  ko:'고출력 코일', d:'피해 +35%',                     max:5, apply:s => { s.dmg *= 1.35; } },
-    { id:'rg_charge',ko:'급속 충전', d:'충전 시간 -15%',                 max:4, apply:s => { s.charge *= .85; } },
-    { id:'rg_width',ko:'광폭 탄',    d:'탄 폭 +60%, 덜 빗나감',          max:2, apply:s => { s.width *= 1.6; } },
-    { id:'rg_track',ko:'추적 조준',   d:'발사 직전까지 조준을 따라감 (빗나감 거의 없음)', max:1, apply:s => { s.lockAt = .97; } },
+    { id:'rg_dmg',  ko:'고출력 코일', d:'피해 +25%',                       max:10, apply:pct('dmg', .25) },
+    { id:'rg_charge',ko:'급속 충전', d:'충전 시간 -9%',                    max:6,  apply:cut('charge', .09) },
+    { id:'rg_width',ko:'광폭 탄',    d:'탄 폭 +25%, 덜 빗나감',             max:4,  apply:pct('width', .25) },
+    { id:'rg_lock', ko:'조준 보정',   d:'조준이 고정되는 시점 +4%p (덜 빗나감)', max:3,  apply:s => { s.lockAt = Math.min(.97, s.lockAt + .04); } },
     { id:'rg_shock',ko:'충격파',     d:'꿰뚫은 자리마다 작은 폭발 (피해 25%)', max:1, apply:s => { s.shock = .25; } },
   ],
   flame: [
-    { id:'f_fuel',  ko:'연료 첨가',   d:'불길 피해 +30%',                 max:5, apply:s => { s.dps *= 1.3; } },
-    { id:'f_reach', ko:'고압 노즐',   d:'사거리 +25%',                    max:3, apply:s => { s.range *= 1.25; } },
-    { id:'f_wide',  ko:'광각 노즐',   d:'부채꼴 폭 +40%',                 max:2, apply:s => { s.cone *= 1.4; } },
-    { id:'f_sticky',ko:'점착 연료',   d:'화상 중첩 +3',                   max:2, apply:s => { s.stacks += 3; } },
-    { id:'f_purge', ko:'소각',       d:'생체형에 피해 +60% 더',            max:1, apply:s => { s.organic += .6; } },
+    { id:'f_fuel',  ko:'연료 첨가',   d:'불길 피해 +25%',                   max:10, apply:pct('dps', .25) },
+    { id:'f_reach', ko:'고압 노즐',   d:'사거리 +8%',                      max:5,  apply:pct('range', .08) },
+    { id:'f_wide',  ko:'광각 노즐',   d:'부채꼴 폭 +12%',                  max:4,  apply:pct('cone', .12) },
+    { id:'f_burn',  ko:'인화성 연료', d:'화상 피해 +25%',                   max:5,  apply:pct('burn', .2) },
+    { id:'f_sticky',ko:'점착 연료',   d:'화상 중첩 +1',                    max:4,  apply:s => { s.stacks += 1; } },
+    { id:'f_purge', ko:'소각',       d:'생체형에 피해 +60% 더',             max:1,  apply:s => { s.organic += .6; } },
   ],
   carrier: [
-    { id:'ic_craft',ko:'편대 증강',   d:'인터셉터 +1',                    max:3, apply:s => { s.craft += 1; } },
-    { id:'ic_dmg',  ko:'기관포 강화', d:'피해 +30%',                     max:5, apply:s => { s.dmg *= 1.3; } },
-    { id:'ic_ammo', ko:'확장 탄창',   d:'탄창 +4발',                      max:3, apply:s => { s.ammo += 4; } },
-    { id:'ic_rearm',ko:'정비 자동화', d:'재장전 시간 -30%',               max:2, apply:s => { s.rearm *= .7; } },
-    { id:'ic_speed',ko:'애프터버너',  d:'비행 속도 +25%',                 max:2, apply:s => { s.speed *= 1.25; } },
+    { id:'ic_dmg',  ko:'기관포 강화', d:'피해 +25%',                       max:10, apply:pct('dmg', .25) },
+    { id:'ic_craft',ko:'편대 증강',   d:'인터셉터 +1',                     max:3,  apply:s => { s.craft += 1; } },
+    { id:'ic_ammo', ko:'확장 탄창',   d:'탄창 +2발',                       max:5,  apply:s => { s.ammo += 2; } },
+    { id:'ic_rearm',ko:'정비 자동화', d:'재장전 시간 -10%',                 max:5,  apply:cut('rearm', .1) },
+    { id:'ic_speed',ko:'애프터버너',  d:'비행 속도 +10%',                   max:4,  apply:pct('speed', .1) },
     { id:'ic_hunter',ko:'사냥꾼 편대', d:'엘리트·보스를 먼저 쫓고 그들에게 피해 +60%', max:1, apply:s => { s.hunter = .6; } },
   ],
   flak: [
-    { id:'fk_frags',ko:'파편 증량',   d:'파편 +5',                       max:3, apply:s => { s.frags += 5; } },
-    { id:'fk_dmg',  ko:'고폭 작약',   d:'파편 피해 +30%',                 max:5, apply:s => { s.dmg *= 1.3; } },
-    { id:'fk_rate', ko:'자동 장전',   d:'발사 간격 -20%',                 max:3, apply:s => { s.every *= .8; } },
-    { id:'fk_choke',ko:'조임 신관',   d:'파편이 덜 퍼짐 (큰 적에게 더 많이 맞음)', max:2, apply:s => { s.spread *= .75; } },
-    { id:'fk_ap',   ko:'철갑 파편',   d:'파편이 장갑을 무시',              max:1, apply:s => { s.ap = 1; } },
+    { id:'fk_dmg',  ko:'고폭 작약',   d:'파편 피해 +25%',                   max:10, apply:pct('dmg', .25) },
+    { id:'fk_frags',ko:'파편 증량',   d:'파편 +2',                         max:6,  apply:s => { s.frags += 2; } },
+    { id:'fk_rate', ko:'자동 장전',   d:'발사 간격 -10%',                  max:6,  apply:cut('every', .1) },
+    { id:'fk_choke',ko:'조임 신관',   d:'파편이 8% 덜 퍼짐',                max:4,  apply:cut('spread', .08) },
+    { id:'fk_ap',   ko:'철갑 파편',   d:'파편이 장갑을 무시',               max:1,  apply:s => { s.ap = 1; } },
     { id:'fk_double',ko:'이중 신관', d:'터진 자리에서 한 번 더 터짐 (파편 절반)', max:1, apply:s => { s.double = 1; } },
   ],
+  storm: [
+    { id:'st_dps',  ko:'과충전',     d:'폭풍 피해 +25%',                   max:10, apply:pct('dps', .25) },
+    { id:'st_radius',ko:'광역 폭풍', d:'폭풍 반경 +8%',                    max:5,  apply:pct('radius', .08) },
+    { id:'st_dur',  ko:'지속 장치',   d:'폭풍 지속 +0.4초',                 max:5,  apply:s => { s.dur += .4; } },
+    { id:'st_rate', ko:'신속 재전개', d:'재사용 대기 -8%',                  max:6,  apply:cut('every', .08) },
+    { id:'st_static',ko:'정전기',    d:'폭풍 안의 적 35% 감속',             max:1,  apply:s => { s.slow = .35; } },
+    { id:'st_drift',ko:'유도 폭풍',   d:'폭풍이 적이 몰린 쪽으로 천천히 따라감', max:1, apply:s => { s.drift = 1; } },
+  ],
   miner: [
-    { id:'mn_drone',ko:'드론 증설',   d:'채굴 드론 +1',                   max:3, apply:s => { s.drones += 1; } },
-    { id:'mn_speed',ko:'추진기',     d:'드론 속도 +25%',                  max:3, apply:s => { s.speed *= 1.25; } },
-    { id:'mn_cap',  ko:'적재함 확장', d:'한 번에 싣는 양 +50%',            max:3, apply:s => { s.cap *= 1.5; } },
-    { id:'mn_scoop',ko:'광역 집게',   d:'한 번에 쓸어 담는 반경 +40%',      max:2, apply:s => { s.scoop *= 1.4; } },
-    { id:'mn_yield',ko:'정제기',     d:'이 채굴기가 실어 온 광석 가치 +15%p', max:3, apply:s => { s.yield += .15; } },
-    { id:'mn_armor',ko:'장갑 드론',   d:'운석에 부딪혀도 격추되지 않음',     max:1, apply:s => { s.armor = 1; } },
+    { id:'mn_drone',ko:'드론 증설',   d:'채굴 드론 +1',                    max:4,  apply:s => { s.drones += 1; } },
+    { id:'mn_speed',ko:'추진기',     d:'드론 속도 +10%',                   max:5,  apply:pct('speed', .1) },
+    { id:'mn_cap',  ko:'적재함 확장', d:'한 번에 싣는 양 +20%',             max:5,  apply:pct('cap', .2) },
+    { id:'mn_scoop',ko:'광역 집게',   d:'한 번에 쓸어 담는 반경 +12%',        max:4,  apply:pct('scoop', .12) },
+    { id:'mn_yield',ko:'정제기',     d:'이 채굴기가 실어 온 광석 가치 +6%p', max:5,  apply:s => { s.yield += .06; } },
+    { id:'mn_armor',ko:'장갑 드론',   d:'운석에 부딪혀도 격추되지 않음',      max:1,  apply:s => { s.armor = 1; } },
+  ],
+};
+
+// Tiers: Mk I → Mk II after 6 upgrades → Mk III after 14. Each tier opens a core slot;
+// reaching Mk III also offers a one-time evolution: one of two paths that changes how the gun plays.
+export const TIERS = [0, 6, 14];
+export const tierFor = lv => lv >= TIERS[2] ? 3 : lv >= TIERS[1] ? 2 : 1;
+export const EVO = {
+  gatling: [
+    { id:'vulcan',  ko:'벌컨',       en:'VULCAN',    d:'연사 2배, 과열 절반 · 한 발 피해 -20%', apply:s => { s.rate *= 2; s.heatPer *= .5; s.dmg *= .8; } },
+    { id:'flechette',ko:'플레셰트',  en:'FLECHETTE', d:'탄 +2, 관통 +2 · 연사 -20%',          apply:s => { s.bullets += 2; s.pierce += 2; s.rate *= .8; } },
+  ],
+  laser: [
+    { id:'prism',   ko:'프리즘 캐논', en:'PRISM',     d:'빔 +2, 갈라진 빔이 전지를 거의 안 씀',    apply:s => { s.beams += 2; s.prism = 1; } },
+    { id:'cutter',  ko:'절단 빔',     en:'CUTTER',    d:'최대 출력 배율 2배, 출력이 2배 빨리 오름', apply:s => { s.rampMax *= 2; s.ramp *= .5; s.dps *= 1.1; } },
+  ],
+  missile: [
+    { id:'swarm',   ko:'스웜 포드',   en:'SWARM',     d:'미사일 +4, 장전 -20% · 한 발 피해 -30%', apply:s => { s.count += 4; s.every *= .8; s.dmg *= .7; } },
+    { id:'torpedo', ko:'중어뢰',      en:'TORPEDO',   d:'피해 ×2.5, 폭발 ×1.8, 집속탄 5개 · 장전 +30%', apply:s => { s.dmg *= 2.5; s.blast *= 1.8; s.cluster = 5; s.every *= 1.3; } },
+  ],
+  cryo: [
+    { id:'zero',    ko:'절대영도',    en:'ABSOLUTE',  d:'얼림 확률 50%, 감속 +15%p',            apply:s => { s.freeze = .5; s.slow += .15; } },
+    { id:'blizzard',ko:'블리자드',    en:'BLIZZARD',  d:'냉각 범위 ×1.8, 발사 간격 -30%',        apply:s => { s.radius *= 1.8; s.every *= .7; } },
+  ],
+  tesla: [
+    { id:'stormcoil',ko:'폭풍 코일',  en:'STORMCOIL', d:'튀는 횟수 +4, 튀는 거리 ×1.4, 감소 없음', apply:s => { s.jumps += 4; s.hop *= 1.4; s.conduct = Math.max(s.conduct, .01); } },
+    { id:'arc',     ko:'과부하 아크', en:'OVERARC',   d:'피해 ×2, 0.8초 정지 · 간격 +20%',       apply:s => { s.dmg *= 2; s.stun = .8; s.every *= 1.2; } },
+  ],
+  drone: [
+    { id:'squadron',ko:'편대 드론',   en:'SQUADRON',  d:'드론 +2, 움직이며 사격',                apply:s => { s.drones += 2; s.hoverSpeed = 1e9; } },
+    { id:'heavy',   ko:'중포 드론',   en:'HEAVY',     d:'피해 ×2, 범위 ×1.5 · 간격 +30%',        apply:s => { s.dmg *= 2; s.radius *= 1.5; s.every *= 1.3; } },
+  ],
+  rail: [
+    { id:'gauss',   ko:'가우스 캐논', en:'GAUSS',     d:'충전 절반, 조준 거의 안 놓침 · 피해 -40%', apply:s => { s.charge *= .5; s.lockAt = .97; s.dmg *= .6; } },
+    { id:'breaker', ko:'행성 파쇄포', en:'BREAKER',   d:'피해 ×2.2, 탄 폭 ×2, 충격파 50% · 충전 +30%', apply:s => { s.dmg *= 2.2; s.width *= 2; s.shock = .5; s.charge *= 1.3; } },
+  ],
+  flame: [
+    { id:'torch',   ko:'플라즈마 토치', en:'TORCH',   d:'사거리 ×1.6, 피해 ×1.4 · 부채꼴 좁아짐',  apply:s => { s.range *= 1.6; s.dps *= 1.4; s.cone *= .6; } },
+    { id:'inferno', ko:'인페르노',    en:'INFERNO',   d:'부채꼴 ×2, 화상 ×1.5, 중첩 +4',          apply:s => { s.cone *= 2; s.burn *= 1.5; s.stacks += 4; } },
+  ],
+  carrier: [
+    { id:'wing',    ko:'요격 편대',   en:'WING',      d:'인터셉터 +3, 탄창 +6',                  apply:s => { s.craft += 3; s.ammo += 6; } },
+    { id:'bomber',  ko:'폭격기',      en:'BOMBER',    d:'한 발 피해 ×3, 엘리트·보스 사냥 · 연사 절반', apply:s => { s.dmg *= 3; s.every *= 2; s.hunter = Math.max(s.hunter, .8); } },
+  ],
+  flak: [
+    { id:'barrage', ko:'탄막포',      en:'BARRAGE',   d:'파편 +10, 발사 간격 -25%',              apply:s => { s.frags += 10; s.every *= .75; } },
+    { id:'piercer', ko:'철갑 파쇄포', en:'PIERCER',   d:'장갑 무시, 파편 피해 ×1.6, 덜 퍼짐',      apply:s => { s.ap = 1; s.dmg *= 1.6; s.spread *= .6; } },
   ],
   storm: [
-    { id:'st_dps',  ko:'과충전',     d:'폭풍 피해 +30%',                 max:5, apply:s => { s.dps *= 1.3; } },
-    { id:'st_radius',ko:'광역 폭풍', d:'폭풍 반경 +25%',                 max:3, apply:s => { s.radius *= 1.25; } },
-    { id:'st_dur',  ko:'지속 장치',   d:'폭풍 지속 +1초',                  max:3, apply:s => { s.dur += 1; } },
-    { id:'st_rate', ko:'신속 재전개', d:'재사용 대기 -15%',               max:3, apply:s => { s.every *= .85; } },
-    { id:'st_static',ko:'정전기',    d:'폭풍 안의 적 35% 감속',            max:1, apply:s => { s.slow = .35; } },
-    { id:'st_drift',ko:'유도 폭풍',   d:'폭풍이 적이 몰린 쪽으로 천천히 따라감', max:1, apply:s => { s.drift = 1; } },
+    { id:'tempest', ko:'대폭풍',      en:'TEMPEST',   d:'반경 ×1.6, 지속 +2초',                  apply:s => { s.radius *= 1.6; s.dur += 2; } },
+    { id:'strike',  ko:'연속 낙뢰',   en:'STRIKE',    d:'재사용 절반, 피해 ×1.3 · 지속 -40%',      apply:s => { s.every *= .5; s.dps *= 1.3; s.dur *= .6; } },
+  ],
+  miner: [
+    { id:'fleet',   ko:'채굴 함대',   en:'FLEET',     d:'드론 +3, 속도 +20%',                    apply:s => { s.drones += 3; s.speed *= 1.2; } },
+    { id:'refinery',ko:'정제소',      en:'REFINERY',  d:'정제 +50%p, 적재량 2배, 장갑 드론',       apply:s => { s.yield += .5; s.cap *= 2; s.armor = 1; } },
   ],
 };
 
 // fortress cards
 export const FORT_UPG = [
-  { id:'f_hp',     ko:'장갑 보강',   d:'요새 최대 체력 +20%, 체력 30% 회복', max:5 },
-  { id:'f_regen',  ko:'자가 수리',   d:'초당 체력 +3 회복',               max:3 },
-  { id:'f_energy', ko:'에너지 효율', d:'광석 가치 +20%',                  max:3 },
+  { id:'f_hp',     ko:'장갑 보강',   d:'요새 최대 체력 +15%, 체력 30% 회복', max:8 },
+  { id:'f_regen',  ko:'자가 수리',   d:'초당 체력 +2 회복',               max:5 },
+  { id:'f_energy', ko:'에너지 효율', d:'광석 가치 +12%',                  max:5 },
   { id:'f_magnet', ko:'중력 자석',   d:'방어막 근처 광석을 끌어오는 범위 +60%', max:2 },
 ];

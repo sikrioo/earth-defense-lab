@@ -6,11 +6,11 @@ import { resetJag, tickBolts } from '../core/lightning.js';
 import { CORES, FORT, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
 import { G, enemies, fx, shots } from './state.js';
 import { MODES, fitView, modeFor, startCamera, tickCamera, V } from './view.js';
-import { drawRocks, spawnRock, updRocks } from './enemies.js';
+import { drawRocks, hurt, spawnRock, updRocks } from './enemies.js';
 import { bossAlive, startWave, updWaves } from './waves.js';
 import { drawBackdrop, drawFortress, invalidateBackdrop, updFortress } from './fortress.js';
-import { addTurret, drawTurrets, levelOf, placeTurrets, resetTurrets, turretAt, turrets, updShots, updTurrets } from './turrets.js';
-import { checkEnergy, choose, needFor, open as openPick, resetCards, smartPick } from './cards.js';
+import { addTurret, drawTurrets, evoOf, levelOf, placeTurrets, resetTurrets, tierOf, turretAt, turrets, updShots, updTurrets } from './turrets.js';
+import { checkEnergy, choose, needFor, open as openPick, openEvo, resetCards, smartPick } from './cards.js';
 import { openCodex } from './codex.js';
 import { drawMiners, drawOres, resetMining, sweepOres, updMining } from './mining.js';
 import { autoFitCores, openCoreDialog, resetCoreUi } from './coreui.js';
@@ -19,6 +19,7 @@ import { isMuted, setMuted, sfx } from './sfx.js';
 // test hooks: ?auto=1 picks cards by itself, ?speed=4 runs faster, ?wave=12 starts later, ?view=full locks the view
 const QS = new URLSearchParams(location.search);
 const AUTO = QS.get('auto'), TEST_SPEED = +QS.get('speed') || 0, START_WAVE = Math.max(1, Math.min(30, +QS.get('wave') || 1));
+const QS_BOSS = { colossus:10, hive:15, planet:20, saturn:25, blackhole:30 }[QS.get('boss')] || 0;
 const QS_VIEW = ['line', 'half', 'full'].includes(QS.get('view')) ? QS.get('view') : null;
 
 const $ = id => document.getElementById(id);
@@ -33,22 +34,30 @@ function setView(mode, animate){
   if (animate){ startCamera(from); sfx.view(); const M = MODES[mode]; G.banner = { title:`${M.en}`, sub:`시야 확장 · ${M.ko} 방어 · 포탑 자리 ${M.pads}개 · 새 포탑 1개`, warn:false }; G.bannerT = 2.6; G.bonusPick = true; }
 }
 // run setup: start = first wave, view = locked view or null for automatic, freePicks = cards handed out for skipped waves
-function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoPicks = !!AUTO){
+function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoPicks = !!AUTO, bossTest = !!QS_BOSS){
   enemies.length = 0; fx.length = 0; parts.length = 0; resetTurrets(); resetCards(); resetMining(); resetCoreUi();
   Object.assign(G, { phase:'wave', wave:0, paused:false, picking:false, hp:FORT.hp, hpMax:FORT.hp, regen:0, hitT:0,
-    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, hitStop:0, pickQueue:0, bonusPick:false, cores:[], coreQueue:0, magnet:ORE.magnet });
+    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, bossTest, god:G.god || false, evoQueue:[], hitStop:0, pickQueue:0, bonusPick:false, cores:[], coreQueue:0, magnet:ORE.magnet });
   G.wave = start; setView(wantView(), false);
   addTurret('gatling');
   hud.over.hidden = true; hud.pausebox.hidden = true;
   startWave(start);
   // skipped waves: the cards you would have earned, one after another (the bots pick for themselves)
   if (freePicks && start > 1){
-    if (autoPicks) for (let i = 0; i < start; i++){ G.energy += G.need; checkEnergy(); choose(AUTO === 'smart' || !AUTO ? smartPick() : 0); }
+    if (autoPicks){
+      for (let i = 0; i < start; i++){ G.energy += G.need; checkEnergy(); choose(AUTO === 'smart' || !AUTO ? smartPick() : 0); }
+      // the new-pad turrets the skipped view changes would have handed out
+      for (let i = 0; i < (start > 10) + (start > 20); i++){ openPick(true); choose(smartPick()); }
+      for (let i = 0; i < 6 && G.evoQueue.length; i++){ const t = G.evoQueue.shift(); if (!t.evo){ openEvo(t); choose(0); } }
+    }
     else G.pickQueue = start;
   }
 }
 
+// bots: keep choosing while a dialog is up (a choice can open the next one straight away)
+function autoChoose(){ for (let i = 0; i < 6 && G.picking && AUTO; i++) choose(AUTO === 'smart' ? smartPick() : (Math.random()*3)|0); }
 function update(dt){
+  if (G.god) G.hp = G.hpMax;
   updWaves(dt);
   if (wantView() !== V.mode) setView(wantView(), true);
   updRocks(dt);
@@ -60,12 +69,14 @@ function update(dt){
   for (let i = fx.length - 1; i >= 0; i--) if (!fx[i].update(dt)) fx.splice(i, 1);
   G.runTime += dt;
   checkEnergy();
+  // a turret reached Mk III: offer its evolution
+  if (G.evoQueue.length && !G.picking && !G.coreOpen){ const t = G.evoQueue.shift(); if (turrets.includes(t) && !t.evo) openEvo(t); }
   // a core came home (or a turret opened a new slot while cores wait): offer it
   if (G.coreQueue > 0 && !G.picking && !G.coreOpen){ G.coreQueue = 0; if (AUTO) autoFitCores(); else openCoreDialog(); }
   // a wider view comes with a free pick of new turrets for the new pads (once the zoom has settled)
   if (G.bonusPick && !G.picking && V.cam === 1){ G.bonusPick = false; openPick(true); }
   if (!G.picking && G.pickQueue > 0){ G.pickQueue--; G.picks++; G.need = needFor(G.picks); openPick(); }
-  if (G.picking && AUTO) choose(AUTO === 'smart' ? smartPick() : (Math.random()*3)|0);
+  autoChoose();
   if (G.hp <= 0 && G.phase !== 'over'){ G.phase = 'over'; endRun(false); }
   if (G.phase === 'win' && hud.over.hidden) endRun(true);
   decayShake(dt);
@@ -120,9 +131,9 @@ function drawHud(){
 function buildList(){
   if (!turrets.length) return '';
   return turrets.map(t => {
-    const ups = UPG[t.type].filter(u => t.lv[u.id]).map(u => `${u.ko}${u.max > 1 ? ' ' + t.lv[u.id] : ''}`).join(' · ') || '강화 없음';
+    const ups = UPG[t.type].filter(u => t.lv[u.id]).map(u => `${u.ko}${u.max > 1 ? ' ' + t.lv[u.id] : ''}`).join(' · ') || '강화 없음', ev = evoOf(t);
     const cores = t.cores.length ? `<span>코어 · ${t.cores.map(c => CORES[c].ko).join(' · ')}</span>` : '';
-    return `<li style="--c:rgb(${t.T.col})"><b>${t.T.ko}</b> <em>+${levelOf(t)}</em><span>${ups}</span>${cores}</li>`;
+    return `<li style="--c:rgb(${t.T.col})"><b>${ev ? ev.ko : t.T.ko}</b> <em>MK ${['I', 'II', 'III'][tierOf(t) - 1]} · +${levelOf(t)}</em><span>${ups}</span>${cores}</li>`;
   }).join('');
 }
 function endRun(win){
@@ -152,7 +163,11 @@ $('stgrid').addEventListener('click', e => { const b = e.target.closest('button'
   $('stgrid').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
 for (const [id, key] of [['stview', 'view'], ['stcards', 'cards']]) $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; stage[key] = b.dataset.v;
   $(id).querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', x === b)); });
+$('stboss').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+  G.god = $('stgod').checked; setPaused(false); $('stage').open = false; newRun(+b.dataset.w, null, true, true, true); });
+$('stgod').addEventListener('change', e => { G.god = e.target.checked; });
 $('stgo').addEventListener('click', () => {
+  G.god = $('stgod').checked;
   setPaused(false); $('stage').open = false;
   newRun(stage.wave, stage.view || null, stage.cards !== 'none', stage.cards === 'auto');
 });
@@ -176,6 +191,7 @@ function frame(now){
   requestAnimationFrame(frame);
   const dt = Math.max(0, Math.min(.033, (now - last)/1000)); last = now;   // the first rAF stamp can predate `last`
   resetJag();
+  autoChoose();
   const running = !G.paused && !G.picking && !G.coreOpen && !G.codexOpen && (G.phase === 'wave' || G.phase === 'break');
   if (running && G.hitStop > 0){ G.hitStop -= dt; tickClock(dt*.1); }      // a beat of stillness on big kills and hits
   else if (running){
@@ -189,7 +205,7 @@ function frame(now){
 
 setMAXP(innerWidth < 700 ? 900 : 2600);
 fitView();
-newRun();
+newRun(QS_BOSS || START_WAVE);
 requestAnimationFrame(frame);
 // for tests and tinkering in the console
-window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret, newRun, resetTurrets, spawnRock };
+window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret, newRun, resetTurrets, spawnRock, hurt };

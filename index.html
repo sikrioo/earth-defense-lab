@@ -46,7 +46,7 @@
     <h2 class="pk-title">ENERGY CORE</h2>
     <div class="cd-core"><canvas width="96" height="96" aria-hidden="true"></canvas><div><b class="cd-name"></b><span class="cd-desc"></span><span class="cd-store"></span></div></div>
     <div class="cd-list"></div>
-    <p class="pk-hint">코어는 한 번 끼우면 빼지 못해요 · 슬롯은 강화 4회에 2개, 8회에 3개</p>
+    <p class="pk-hint">코어는 한 번 끼우면 빼지 못해요 · 슬롯은 MK II(강화 6회)에 2개, MK III(14회)에 3개</p>
     <button type="button" class="cd-keep">보관하고 나중에 끼우기</button>
   </div>
 </div>
@@ -78,6 +78,15 @@
           <button type="button" role="radio" data-v="none" aria-checked="false">받지 않기</button>
         </div>
         <button type="button" id="stgo" class="primary">이 스테이지로 시작</button>
+        <p class="st-label">보스 바로 테스트 (그 웨이브에서 시작, 카드 자동, 보스 즉시 등장)</p>
+        <div class="st-seg st-boss" id="stboss">
+          <button type="button" data-w="10">거대 운석</button>
+          <button type="button" data-w="15">생체 행성</button>
+          <button type="button" data-w="20">떠돌이 행성</button>
+          <button type="button" data-w="25">토성의 잔해</button>
+          <button type="button" data-w="30">블랙홀</button>
+        </div>
+        <label class="st-god"><input type="checkbox" id="stgod" checked> 무적 (요새 체력이 줄지 않음 · 보스 테스트용)</label>
       </div>
     </details>
     <a class="classic" href="./classic.html">클래식 모드 (예전 버전) →</a>

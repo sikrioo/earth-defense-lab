@@ -11,11 +11,14 @@ import { hitFortress } from './fortress.js';
 import { discover } from './codex.js';
 import { dropLoot } from './mining.js';
 import { sfx } from './sfx.js';
+import { afterHurt, armorOf, drawCustom, drawCustomIcon, filterHurt, onKill, onSpawn, updSpecial } from './bosses.js';
 
 const SPR = 2;                       // sprite pixels per world unit
 const sprites = new Map();
 export const alive = e => e && !e.dead;
 export const isChilled = e => e.slowT > 0 || e.freezeT > 0;
+// can a gun pick this as a target? (not while a comet is still a warning, a phase rock is folded away, or dark matter is unseen)
+export const targetable = e => alive(e) && !(e.warnT > 0) && !e.ghost && !e.hidden;
 
 export function spawnRock(type, x, y, opts = {}){
   const T = ROCK[type], w = Math.max(1, G.wave);
@@ -27,7 +30,7 @@ export function spawnRock(type, x, y, opts = {}){
   aimAt(e, opts.aim ?? angC(x, y) + rand(-.25, .25));
   // comets: the trajectory is shown for a moment first, then they come in at full speed
   if (T.comet){ const dx = e.tx - x, dy = e.ty - y, d = Math.hypot(dx, dy); e.vx = dx/d*e.speed; e.vy = dy/d*e.speed; e.rot = Math.atan2(e.vy, e.vx); e.spin = 0; e.warnT = 1.1; sfx.cometWarn(); }
-  enemies.push(e); discover(type); return e;
+  enemies.push(e); onSpawn(e); discover(type); return e;
 }
 
 // all damage goes through here: armour, the cryo "shatter" bonus, numbers for big hits
@@ -39,11 +42,12 @@ export function hurt(e, dmg, opts = {}){
   if (!alive(e)) return 0;
   let d = dmg;
   if (isChilled(e)) d *= 1 + G.shatter + (opts.chillBonus || 0);
-  if (e.T.organic && opts.organicBonus) d *= 1 + opts.organicBonus;
-  if (e.T.armor && !opts.pierceArmor) d = Math.max(d*.25, d - e.T.armor);
-  e.hp -= d; e.flash = .1;
+  if ((e.T.organic || e.T.icy) && opts.organicBonus) d *= 1 + opts.organicBonus;
+  const ar = armorOf(e); if (ar && !opts.pierceArmor) d = Math.max(d*.25, d - ar);
+  d = filterHurt(e, d); if (d <= 0) return 0;
+  e.hp -= d; e.flash = .1; afterHurt(e);
   // a shove away from Earth: small rocks get knocked back, big ones barely, bosses and comets not at all
-  if (!e.T.boss && !e.T.comet && d > 0){
+  if (!e.T.boss && !e.T.comet && !e.T.node && d > 0){
     const dc = Math.hypot(e.x - V.cx, e.y - V.cy) || 1, kb = Math.min(40, d*1.3)*14/Math.max(12, e.r);
     e.px += (e.x - V.cx)/dc*kb; e.py += (e.y - V.cy)/dc*kb;
     const m = Math.hypot(e.px, e.py); if (m > 90){ e.px *= 90/m; e.py *= 90/m; }
@@ -64,6 +68,7 @@ export function chill(e, amt, t){
 
 function kill(e){
   e.dead = true; G.kills++; G.waveDone++;
+  onKill(e);
   dropLoot(e);
   explode(e.x, e.y, e.r*1.6, e.T.col);
   // chunks of rock fly off; big kills stop the clock for a beat
@@ -88,6 +93,7 @@ export function updRocks(dt){
     if (e.burnT > 0){ e.burnT -= dt; hurt(e, e.burn*e.burnDps*dt); if (e.dead) continue; if (e.burnT <= 0) e.burn = 0; }
     e.flash = Math.max(0, e.flash - dt); e.slowT = Math.max(0, e.slowT - dt); e.freezeT = Math.max(0, e.freezeT - dt); e.stunT = Math.max(0, e.stunT - dt);
     const k = e.freezeT > 0 || e.stunT > 0 ? 0 : e.slowT > 0 ? 1 - e.slowAmt : 1;
+    if (updSpecial(e, dt)) continue;
     if (e.T.comet){
       if (e.warnT > 0){ e.warnT -= dt; if (e.warnT <= 0) sfx.comet(); continue; }
       e.x += e.vx*k*dt; e.y += e.vy*k*dt;
@@ -235,6 +241,7 @@ function hiveEye(e){
 }
 // codex art: the rock (and the living planet's eye) fitted into a canvas; unknown ones as a dark silhouette
 export function drawRockIcon(canvas, type, hidden){
+  if (ROCK[type].custom) return drawCustomIcon(canvas, type, ROCK[type], hidden);
   const T = ROCK[type], e = { type, T, r:T.r, variant:0, seed:3, x:0, y:0, rot:-.4 };
   const s = rockSprite(e), g = canvas.getContext('2d'), sc = canvas.width/(s.size*1.05);
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height);
@@ -272,28 +279,36 @@ export function drawRocks(){
       for (let i = 1; i <= 14; i++){ const t = i/14; sprite(e.x + dx*e.r*20*t, e.y + dy*e.r*20*t, e.r*(2.6 - t*1.8), [255,70,40], .45*(1 - t)); }
       for (let i = 1; i <= 6; i++){ const t = i/6; sprite(e.x + dx*e.r*7*t, e.y + dy*e.r*7*t, e.r*(1.2 - t*.8), [255,220,170], .5*(1 - t)); }
       sprite(e.x, e.y, e.r*4, [255,110,70], .6); sprite(e.x, e.y, e.r*1.2, [255,255,230], .9);
-    } else sprite(e.x, e.y, e.r*(e.T.boss ? 1.9 : 1.6), e.T.col, e.T.boss ? .22 : .14);
+    } else if (!e.T.custom && !e.hidden) sprite(e.x, e.y, e.r*(e.T.boss ? 1.9 : 1.6), e.T.col, e.ghost ? .05 : e.T.boss ? .22 : .14);
     if (isChilled(e)) sprite(e.x, e.y, e.r*1.5, [130,205,255], e.freezeT > 0 ? .5 : .28);
     if (e.burnT > 0) sprite(e.x + rand(-e.r, e.r)*.3, e.y - e.r*.3, e.r*(1.1 + Math.random()*.5), [255,120,40], .25 + e.burn*.06);
   }
   ctx.globalCompositeOperation = 'source-over';
   for (const e of enemies){
     if (e.warnT > 0) continue;
+    if (e.T.custom){ drawCustom(e); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; if (!e.T.boss && e.hp < e.max) hpBar(e); continue; }
     const s = rockSprite(e);
     if (e.type === 'hive') hiveTendrils(e);
     // organics breathe instead of tumbling
     const pulse = e.T.organic ? 1 + Math.sin(time*(e.T.boss ? 2 : 5) + e.seed)*(e.T.boss ? .025 : .06) : 1;
-    ctx.globalAlpha = 1; ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.T.organic ? (e.T.boss ? 0 : Math.sin(time*2 + e.seed)*.25) : e.rot); ctx.scale(pulse, 2 - pulse);
+    // dark matter is barely there until it comes close; a folded phase rock is a ghost
+    ctx.globalAlpha = e.hidden ? .1 + .05*Math.sin(time*3 + e.seed) : e.ghost ? .25 : 1; ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.T.organic ? (e.T.boss ? 0 : Math.sin(time*2 + e.seed)*.25) : e.rot); ctx.scale(pulse, 2 - pulse);
     ctx.drawImage(s.c, -s.o, -s.o, s.size, s.size); ctx.restore();
     if (e.type === 'hive') hiveEye(e);
     if (e.flash > 0){ ctx.globalCompositeOperation = 'lighter'; sprite(e.x, e.y, e.r*1.3, [255,255,255], e.flash*5); ctx.globalCompositeOperation = 'source-over'; }
     if (e.freezeT > 0){ ctx.strokeStyle = 'rgba(200,240,255,.9)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 3, 0, TAU); ctx.stroke(); }
-    if (!e.T.boss && e.hp < e.max){
-      const w = Math.max(18, e.r*1.6), x = e.x - w/2, y = e.y - e.r - 8;
-      ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(x - 1, y - 1, w + 2, 4);
-      ctx.fillStyle = rgb(e.T.col); ctx.fillRect(x, y, w*Math.max(0, e.hp/e.max), 2);
-    }
+    ctx.globalAlpha = 1;
+    if (e.T.shell && !e.shellBroken){ ctx.strokeStyle = 'rgba(220,240,255,.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, e.r*1.05, 0, TAU); ctx.stroke(); }
+    if (e.ghost){ ctx.globalCompositeOperation = 'lighter'; neonCircleLite(e); ctx.globalCompositeOperation = 'source-over'; }
+    if (!e.T.boss && !e.hidden && e.hp < e.max) hpBar(e);
   }
   ctx.globalCompositeOperation = 'lighter';
 }
 export function hitSpark(x, y, c){ burst(x, y, c, 4, 160, 1.8); }
+
+function hpBar(e){
+  const w = Math.max(18, e.r*1.6), x = e.x - w/2, y = e.y - e.r - 8;
+  ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(x - 1, y - 1, w + 2, 4);
+  ctx.fillStyle = rgb(e.T.col); ctx.fillRect(x, y, w*Math.max(0, e.hp/e.max), 2);
+}
+function neonCircleLite(e){ ctx.strokeStyle = rgb(e.T.col, .5); ctx.lineWidth = 1.2; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(e.x, e.y, e.r*1.2, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }

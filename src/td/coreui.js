@@ -1,5 +1,5 @@
 /* ---------- fortress mode: the energy-core dialog — pick which turret gets the core, or keep it for later ---------- */
-import { CORES } from './data.js';
+import { CORES, TIERS } from './data.js';
 import { G } from './state.js';
 import { coreUseful, drawTurretIcon, installCore, levelOf, slotsOf, turrets } from './turrets.js';
 import { coreIcon } from './mining.js';
@@ -20,7 +20,7 @@ export function openCoreDialog(){
   list.innerHTML = '';
   for (const t of [...turrets].sort((a, b) => levelOf(b) - levelOf(a))){
     const n = slotsOf(t), full = t.cores.length >= n, useful = coreUseful(t, current), lv = levelOf(t);
-    const next = n < 3 ? `강화 ${n === 1 ? 4 : 8}회면 슬롯 ${n + 1}개` : '';
+    const next = n < 3 ? `강화 ${TIERS[n]}회면 슬롯 ${n + 1}개` : '';
     const b = document.createElement('button'); b.type = 'button'; b.className = 'cd-row'; b.style.setProperty('--t', rgbs(t.T.col));
     b.disabled = full || !useful;
     b.innerHTML = `<canvas width="88" height="88" aria-hidden="true"></canvas><span><b>${t.T.ko}</b> <small>+${lv} · ${!useful ? '이 코어는 효과 없음' : full ? `슬롯 가득${next ? ' · ' + next : ''}` : `빈 슬롯 ${n - t.cores.length}${next ? ' · ' + next : ''}`}</small></span>

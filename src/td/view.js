@@ -93,6 +93,8 @@ export function spawnPoint(T, dir){
   // more room to cross, so a phone's narrow sides don't throw rocks straight onto the shield
   const pick = () => V.mode === 'half' ? -Math.PI + Math.random()*Math.PI : Math.random()*Math.PI*2;
   let a;
+  // bosses come in from the top half where there is room, already half on screen
+  if (T.boss){ a = -Math.PI/2 + (Math.random() - .5)*(V.mode === 'half' ? 1.4 : 1); return { x:V.cx + Math.cos(a)*(edgeDist(a) + T.r*.2), y:V.cy + Math.sin(a)*(edgeDist(a) + T.r*.2), aim:a }; }
   if (dir && dir.a !== undefined && !T.boss){ a = dir.a + (Math.random() - .5)*.7; if (V.mode === 'half') a = Math.max(-Math.PI + .05, Math.min(-.05, a)); }
   else { a = pick(); for (let i = 0; i < 16; i++){ const room = Math.max(0, edgeDist(a) - V.SR)/V.room; if (Math.random() < room*room) break; a = pick(); } }
   const r = edgeDist(a) + 30 + T.r;

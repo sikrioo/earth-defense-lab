@@ -10,6 +10,7 @@ import { V, distC } from './view.js';
 import { neonCircle, neonPath, rgb, ringFx } from './fx.js';
 import { turrets } from './turrets.js';
 import { sfx } from './sfx.js';
+import { pullOre } from './bosses.js';
 
 export const ores = [];
 export const miners = [];
@@ -127,6 +128,7 @@ export function updMining(dt){
     // the shield's magnet: close ore is pulled in and counts as soon as it touches
     const dc = distC(o.x, o.y);
     if (dc < V.SR + G.magnet){ const k = 260*dt/(dc || 1); o.vx -= (o.x - V.cx)*k; o.vy -= (o.y - V.cy)*k; }
+    if (!pullOre(o, dt)){ if (o.claim) o.claim.tgt = null; ores.splice(i, 1); continue; }
     o.x += o.vx*dt; o.y += o.vy*dt;
     if (distC(o.x, o.y) < V.SR - 4){ deposit(o.x, o.y, o.v, o.core ? [o.core] : []); ores.splice(i, 1); continue; }
     if (o.t >= o.life){ if (o.claim) o.claim.tgt = null; sprite(o.x, o.y, 10, [255,170,90], .5); ores.splice(i, 1); }

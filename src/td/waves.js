@@ -1,6 +1,6 @@
 /* ---------- fortress mode: the wave director — 30 waves, elites, bosses, breaks between ---------- */
 import { rand } from '../core/canvas.js';
-import { ROCK, WAVES } from './data.js';
+import { ROCK, SECTORS, WAVES, sectorOf } from './data.js';
 import { G, enemies } from './state.js';
 import { pickDir, spawnPoint } from './view.js';
 import { sfx } from './sfx.js';
@@ -26,10 +26,14 @@ export function startWave(n){
   G.surgeAt = surgeN ? win*.62 : 0; G.surgeWarned = false;
   if (surgeN){ const dirs = [pickDir(), pickDir()]; for (let j = 0; j < surgeN; j++) G.queue.push({ t:G.surgeAt + rand(0, 2.4), type:pickWeighted(mix), dir:dirs[j % 2] }); }
   WAVES.extra(n).forEach((type, i) => G.queue.push({ t:win*.3 + i*6, type }));
-  G.queue.sort((a, b) => a.t - b.t);
   G.spawnT = 0; G.waveTotal = G.queue.length; G.waveDone = 0;
   const boss = WAVES.extra(n).find(t => ROCK[t].boss);
-  banner(boss ? 'BOSS WAVE' : `WAVE ${n}`, boss ? `${ROCK[boss].ko} 접근` : `${count}개 접근`, !!boss);
+  const sec = sectorOf(n), newSector = n > 1 && sec !== sectorOf(n - 1);
+  if (newSector) banner(`SECTOR ${sec + 1} · ${SECTORS[sec].en}`, `${SECTORS[sec].ko} 진입 · 웨이브 ${n}`);
+  else banner(boss ? 'BOSS WAVE' : `WAVE ${n}`, boss ? `${ROCK[boss].ko} 접근` : `${count}개 접근`, !!boss);
+  // boss test: the boss shows up right away
+  if (G.bossTest) for (const q of G.queue) if (ROCK[q.type].boss) q.t = 1.2;
+  G.queue.sort((a, b) => a.t - b.t);
   if (boss) sfx.alarm();
 }
 export function banner(title, sub, warn = false){ G.banner = { title, sub, warn }; G.bannerT = 2.2; }

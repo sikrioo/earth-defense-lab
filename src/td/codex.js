@@ -1,5 +1,5 @@
 /* ---------- fortress mode: the codex — every gun (strengths, trade-off, stats, cards) and every enemy met so far ---------- */
-import { CORES, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
+import { CORES, EVO, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
 import { coreIcon, drawOreIcon, drawWorkerIcon } from './mining.js';
 import { G } from './state.js';
 import { drawTurretIcon } from './turrets.js';
@@ -44,7 +44,7 @@ function firstWave(type){
   for (let w = 1; w <= WAVES.last; w++){
     if (WAVES.mix(w).some(([k, n]) => k === type && n > 0) || WAVES.extra(w).includes(type)) return w;
   }
-  const parent = { shard:'splitter', spore:'pod' }[type];
+  const parent = { shard:'splitter', spore:'pod', iceshard:'icecomet', node:'blackhole' }[type];
   return parent ? firstWave(parent) : null;
 }
 const KO_KIND = { ore:'일반', crystal:'결정', core:'코어' };
@@ -69,7 +69,8 @@ function render(){
         <ul class="cx-pros">${T.pros.map(p => `<li>${p}</li>`).join('')}</ul>
         <p class="cx-cons"><span>단점</span>${T.cons}</p>
         ${rows(statRows(k, T.base))}
-        <details><summary>강화 카드 ${UPG[k].length}종</summary><ul class="cx-ups">${UPG[k].map(u => `<li${u.max === 1 ? ' class="core"' : ''}><b>${u.ko}</b><span>${u.d}</span><em>${u.max === 1 ? '핵심' : '최대 ' + u.max}</em></li>`).join('')}</ul></details>
+        <details><summary>강화 카드 ${UPG[k].length}종 · 최대 ${UPG[k].reduce((n, u) => n + u.max, 0)}단계</summary><ul class="cx-ups">${UPG[k].map(u => `<li${u.max === 1 ? ' class="core"' : ''}><b>${u.ko}</b><span>${u.d}</span><em>${u.max === 1 ? '핵심' : '최대 ' + u.max}</em></li>`).join('')}</ul></details>
+        ${EVO[k] ? `<details><summary>MK III 진화 ${EVO[k].length}갈래</summary><ul class="cx-ups">${EVO[k].map(e => `<li class="core"><b>${e.ko}</b><span>${e.d}</span><em>${e.en}</em></li>`).join('')}</ul></details>` : ''}
       </div>`;
       drawTurretIcon(a.querySelector('canvas'), k);
       list.appendChild(a);
@@ -77,7 +78,7 @@ function render(){
   } else if (tab === 'mining'){
     const note = document.createElement('div'); note.className = 'cx-note';
     note.innerHTML = `<p><b>채굴</b> 부서진 운석은 광물을 남기고, 요새로 실어 와야 에너지가 돼요. 방어막 가까이 떠다니는 건 자석이 끌어와요. 드론은 운석에 부딪히면 격추돼 4초 뒤 복귀하고, 싣고 있던 건 그 자리에 떨어져요.</p>
-      <p><b>코어 슬롯</b> 처음 1개, 강화 4회에 2개, 8회에 3개. 한 번 끼운 코어는 빼지 못해요.</p>`;
+      <p><b>등급과 코어 슬롯</b> 포탑은 MK I로 시작해 강화 6회에 MK II, 14회에 MK III가 돼요. 등급마다 코어 슬롯이 1개씩 생기고, MK III에서는 진화 경로 2개 중 하나를 골라요. 한 번 끼운 코어는 빼지 못해요.</p>`;
     list.appendChild(note);
     section('채굴 드론');
     const M = TURRET.miner;
@@ -99,7 +100,7 @@ function render(){
     for (const k in ROCK){
       const T = ROCK[k], known = seen.has(k), a = document.createElement('article');
       a.className = 'cx-item' + (known ? '' : ' unknown'); a.style.setProperty('--c', `rgb(${T.col})`);
-      const tags = [T.boss && '보스', T.elite && '엘리트', T.organic && '생체형', T.armor && `장갑 ${T.armor}`, T.comet && '고속 직선', T.split && `분열 ×${T.split}`, T.weave && '흔들림'].filter(Boolean);
+      const tags = [T.boss && '보스', T.elite && '엘리트', T.organic && '생체형', T.icy && '얼음', T.armor && `장갑 ${T.armor}`, T.shell && `껍질 장갑 ${T.shell}`, T.comet && '궤적 경고 · 돌진', T.split && `분열 ×${T.split}`, T.weave && '흔들림', T.emp && 'EMP', T.phase && '순간이동', T.lens && '중력', T.dark && '은신', T.node && '블랙홀의 핵'].filter(Boolean);
       const fw = firstWave(k);
       a.innerHTML = `<canvas width="144" height="144" aria-hidden="true"></canvas><div class="cx-body">
         <div class="cx-top"><b>${known ? T.ko : '???'}</b>${known ? tags.map(t => `<span class="cx-role">${t}</span>`).join('') : ''}</div>

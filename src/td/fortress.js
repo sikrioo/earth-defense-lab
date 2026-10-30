@@ -5,13 +5,14 @@ import { sprite } from '../core/particles.js';
 import { srng } from '../core/util.js';
 import capUrl from '../../assets/cap.webp';
 import { G, enemies } from './state.js';
+import { SECTORS, sectorOf } from './data.js';
 import { sfx } from './sfx.js';
 import { PW, V, angC, shieldAt } from './view.js';
 import { explode, neonPath, rgb } from './fx.js';
 
 const CYAN = [90,230,255];
 const cap = new Image(); cap.src = capUrl; cap.onload = () => { backdrop = null; };
-let backdrop = null, hits = [];
+let backdrop = null, hits = [], bakedSector = -1;
 export const invalidateBackdrop = () => { backdrop = null; platLayer = null; };
 
 export function hitFortress(e){
@@ -85,13 +86,17 @@ function bake(){
   const c = document.createElement('canvas'); c.width = Math.ceil(W*RS); c.height = Math.ceil(H*RS);
   const g = c.getContext('2d'); g.scale(RS, RS); g.translate(V.ox, 0);
   const x0 = -V.ox, x1 = PW + V.ox, line = V.mode === 'line';
+  const S = SECTORS[sectorOf(G.wave || 1)]; bakedSector = sectorOf(G.wave || 1);
   const sky = g.createLinearGradient(0, 0, 0, V.PH);
-  if (line){ sky.addColorStop(0, '#04050c'); sky.addColorStop(.6, '#070a1a'); sky.addColorStop(1, '#0b1630'); }
-  else { sky.addColorStop(0, '#04050c'); sky.addColorStop(.5, '#060818'); sky.addColorStop(1, '#05060f'); }
+  if (line){ sky.addColorStop(0, S.sky[0]); sky.addColorStop(.6, S.sky[1]); sky.addColorStop(1, S.sky[2]); }
+  else { sky.addColorStop(0, S.sky[0]); sky.addColorStop(.5, S.sky[1]); sky.addColorStop(1, S.sky[0]); }
   g.fillStyle = sky; g.fillRect(x0, 0, x1 - x0, V.PH);
   const blob = (x, y, r, c, a) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, rgb(c, a)); gr.addColorStop(1, rgb(c, 0)); g.fillStyle = gr; g.fillRect(x - r, y - r, r*2, r*2); };
   const k = PW/540;
-  blob(PW*.85, V.PH*.18, 360*k, [120,60,200], .16); blob(PW*.1, V.PH*.42, 300*k, [40,140,220], .12); blob(PW*.6, V.PH*.62, 260*k, [200,60,140], .07);
+  blob(PW*.85, V.PH*.18, 360*k, S.neb[0], .18); blob(PW*.1, V.PH*.42, 300*k, S.neb[1], .14); blob(PW*.6, V.PH*.62, 260*k, S.neb[2], .08);
+  blob(PW*.3, V.PH*.08, 240*k, S.neb[2], .07);
+  // the last sector: something huge and dark bends the light at the top of the sky
+  if (bakedSector === 5){ blob(PW*.5, -V.PH*.05, 520*k, [255,90,40], .14); g.strokeStyle = 'rgba(255,150,90,.12)'; g.lineWidth = 3; g.beginPath(); g.ellipse(PW*.5, -V.PH*.02, 420*k, 90*k, 0, 0, Math.PI); g.stroke(); }
   const rnd = srng(91), starH = line ? V.earthTop : V.PH;
   for (let i = 0; i < 160*k*k; i++){ g.fillStyle = `rgba(220,235,255,${.12 + rnd()*.35})`; g.fillRect(x0 + rnd()*(x1 - x0), rnd()*starH, 1, 1); }
   const R = V.ER, cx = V.cx, cy = V.cy;
@@ -118,7 +123,7 @@ function bake(){
 // three layers of drifting stars give the sense of falling toward Earth
 const STARS = (() => { const r = srng(5); return Array.from({ length:110 }, (_, i) => ({ x:r(), y:r(), l:i % 3 })); })();
 export function drawBackdrop(){
-  if (!backdrop) backdrop = bake();
+  if (!backdrop || bakedSector !== sectorOf(G.wave || 1)) backdrop = bake();
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   ctx.drawImage(backdrop, -V.ox, 0, W, H);
   ctx.globalCompositeOperation = 'lighter';
