@@ -10,8 +10,6 @@ export default defineConfig(({ mode }) => {
     plugins: single ? [viteSingleFile()] : [],
     build: {
       outDir: single ? 'dist-single' : 'dist',
-      // fortress mode is the main page; the earlier game stays reachable as classic.html (site build only)
-      rollupOptions: single ? {} : { input: { main: 'index.html', classic: 'classic.html' } },
       assetsInlineLimit: single ? 100_000_000 : 4096,
       chunkSizeWarningLimit: 2000,
     },

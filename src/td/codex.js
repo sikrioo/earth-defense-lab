@@ -80,7 +80,7 @@ function render(){
   } else if (tab === 'mining'){
     const note = document.createElement('div'); note.className = 'cx-note';
     note.innerHTML = `<p><b>채굴</b> 부서진 운석은 광물을 남기고, 요새로 실어 와야 에너지가 돼요. 방어막 가까이 떠다니는 건 자석이 끌어와요. 드론은 운석에 부딪히면 격추돼 4초 뒤 복귀하고, 싣고 있던 건 그 자리에 떨어져요.</p>
-      <p><b>등급과 코어 슬롯</b> 포탑은 MK I로 시작해 강화 6회에 MK II, 14회에 MK III가 돼요. 등급마다 코어 슬롯이 1개씩 생기고, MK III에서는 진화 경로 2개 중 하나를 골라요. 한 번 끼운 코어는 빼지 못해요.</p>`;
+      <p><b>등급과 코어 슬롯</b> 포탑은 MK I로 시작해 강화 6회에 MK II, 14회에 MK III가 돼요. 등급마다 코어 슬롯이 1개씩 생기고, MK III에서는 진화 경로 2개 중 하나를 골라요. 코어는 포탑을 탭해서 빼고 끼우고 옮길 수 있어요.</p>`;
     list.appendChild(note);
     section('채굴 드론');
     const M = TURRET.miner;
@@ -94,7 +94,7 @@ function render(){
   } else if (tab === 'cores'){
     const note = document.createElement('div'); note.className = 'cx-note';
     note.innerHTML = `<p><b>에너지 코어</b> 엘리트와 보스가 떨궈요. 코어마다 등급·속성·옵션이 있고, 옵션은 정해진 범위 안에서 무작위로 붙어요.</p>
-      <p><b>슬롯과 링크</b> 슬롯은 MK I 1개, MK II 2개, MK III 3개이고, 한 포탑의 슬롯은 모두 연결돼 있어요. 연결된 코어의 속성 조합이 맞으면 링크 효과가 켜져요. 한 번 끼운 코어는 빼지 못해요.</p>`;
+      <p><b>슬롯과 링크</b> 슬롯은 MK I 1개, MK II 2개, MK III 3개이고, 한 포탑의 슬롯은 모두 연결돼 있어요. 연결된 코어의 속성 조합이 맞으면 링크를 켤 수 있고, 한 포탑에서는 링크 하나가 작동해요(여러 개가 가능하면 코어 관리 창에서 골라요). 코어는 언제든 빼고 끼우고 옮길 수 있지만, 끼우거나 옮긴 코어는 3초 동안 안정화된 뒤에 작동해요.</p>`;
     list.appendChild(note);
     section('등급');
     const gl = document.createElement('dl'); gl.className = 'cx-stats cx-flat';

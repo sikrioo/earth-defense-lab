@@ -75,12 +75,14 @@ export function updSpecial(e, dt){
   }
   if (T.blackhole){
     e.phase = e.hp > e.max*.66 ? 1 : e.hp > e.max*.33 ? 2 : 3;
-    // it comes straight for Earth and never stops; an exposed core makes it stall and recoil
+    // it comes straight for Earth and never stops; an exposed core only slows it to a crawl
     const dx = V.cx - e.x, dy = V.cy - e.y, dc = Math.hypot(dx, dy) || 1, ux = dx/dc, uy = dy/dc;
-    const v = e.exposed > 0 ? -28*V.spd : e.speed*[1, 1.25, 1.55][e.phase - 1];
-    e.x += ux*v*dt; e.y += uy*v*dt;
+    const v = e.exposed > 0 ? e.speed*.15 : e.speed*[1, 1.25, 1.55][e.phase - 1];     // an exposed core only slows it
+    // it falls faster the closer it gets (up to 3×), so the last stretch is a plunge
+    const near = Math.max(0, 1 - (dc - V.SR)/(420*V.spd));
+    e.x += ux*v*(1 + near*near*2)*dt; e.y += uy*v*(1 + near*near*2)*dt;
     // tidal pull: the closer it gets, the faster it tears at the fortress, and Earth's air streams toward it
-    const gap = dc - V.SR - e.r*.6, reach = 420*V.spd;
+    const gap = dc - V.SR - e.r*.3, reach = 420*V.spd;
     if (gap < reach){
       const k = 1 - Math.max(0, gap)/reach;
       if (!G.god) G.hp = Math.max(0, G.hp - k*k*30*dt);
@@ -91,12 +93,15 @@ export function updSpecial(e, dt){
       addShake(.06 + k*.25);
       if (!e.warned){ e.warned = true; G.banner = { title:'TIDAL FORCE', sub:'블랙홀이 지구를 빨아들이기 시작했어요', warn:true }; G.bannerT = 2.2; sfx.alarm(); }
     }
-    if (gap <= 0){
-      // it reached the shield: Earth is swallowed
-      e.dead = true; G.waveDone++;
-      for (let i = 0; i < 8; i++) explode(V.cx + rand(-V.SR, V.SR)*.6, V.cy + rand(-V.SR, V.SR)*.6, 90, [255,120,60]);
-      addShake(14); G.hitT = 2;
-      if (!G.god){ G.hp = 0; G.swallowed = true; G.banner = { title:'SWALLOWED', sub:'지구가 블랙홀에 삼켜졌어요', warn:true }; G.bannerT = 3; }
+    if (gap <= 0 || e.swallow !== undefined){
+      // it reached the shield: it slides over Earth and swells until there is nothing left — always a loss, even invincible
+      if (e.swallow === undefined){ e.swallow = 0; e.r0 = e.r; G.banner = { title:'SWALLOWED', sub:'지구가 블랙홀에 삼켜지고 있어요', warn:true }; G.bannerT = 3; sfx.boom(5); }
+      e.swallow += dt; const k = Math.min(1, e.swallow/2);
+      e.x += (V.cx - e.x)*Math.min(1, dt*2.5); e.y += (V.cy - e.y)*Math.min(1, dt*2.5);
+      e.r = e.r0 + (V.SR*1.25 - e.r0)*k*k; e.exposed = 0;
+      addShake(1 + k*3); G.hitT = 2;
+      if (Math.random() < dt*30) explode(V.cx + rand(-1, 1)*V.SR*.7, V.cy + rand(-1, 1)*V.SR*.7, 50, [255,130,60]);
+      if (e.swallow >= 2.2 && G.hp > 0){ G.god = false; G.hp = 0; G.swallowed = true; }
       return true;
     }
     // it sheds dark matter from its disk while it comes
@@ -151,7 +156,7 @@ export function onKill(e){
   }
   if (T.node && live(e.host) && !nodesOf(e.host).some(n => n !== e)){
     const h = e.host; h.exposed = 7;
-    G.banner = { title:'CORE EXPOSED', sub:'7초 동안 본체가 드러나고 뒤로 밀려나요', warn:true }; G.bannerT = 2;
+    G.banner = { title:'CORE EXPOSED', sub:'7초 동안 본체가 드러나고 느려져요', warn:true }; G.bannerT = 2;
     ringFx(h.x, h.y, h.r, h.r*3, .7, [255,90,60], 5); addShake(8); G.hitStop = Math.max(G.hitStop || 0, .12); sfx.alarm();
   }
 }

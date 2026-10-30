@@ -1,9 +1,9 @@
 /* ---------- fortress mode: boot, frame loop, HUD ---------- */
 import './style.css';
-import { RS, cv, ctx, decayShake, rollShake, shX, shY, tickClock } from '../core/canvas.js';
+import { RS, ZOOM, cv, ctx, decayShake, rollShake, shX, shY, tickClock } from '../core/canvas.js';
 import { drawParts, parts, setMAXP, updParts } from '../core/particles.js';
 import { resetJag, tickBolts } from '../core/lightning.js';
-import { FORT, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
+import { FORT, LINKS, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
 import { coreName, gradeOf, linksOf, namedCore, rollCore } from './cores.js';
 import { G, enemies, fx, shots } from './state.js';
 import { MODES, fitView, modeFor, startCamera, tickCamera, V } from './view.js';
@@ -15,6 +15,7 @@ import { checkEnergy, choose, needFor, open as openPick, openEvo, resetCards, sm
 import { openCodex } from './codex.js';
 import { drawMiners, drawOres, resetMining, sweepOres, updMining } from './mining.js';
 import { autoFitCores, openCoreDialog, resetCoreUi } from './coreui.js';
+import { closeArmory, openArmory } from './armory.js';
 import { isMuted, setMuted, sfx } from './sfx.js';
 
 // test hooks: ?auto=1 picks cards by itself, ?speed=4 runs faster, ?wave=12 starts later, ?view=full locks the view
@@ -36,7 +37,7 @@ function setView(mode, animate){
 }
 // run setup: start = first wave, view = locked view or null for automatic, freePicks = cards handed out for skipped waves
 function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoPicks = !!AUTO, bossTest = !!QS_BOSS){
-  enemies.length = 0; fx.length = 0; parts.length = 0; resetTurrets(); resetCards(); resetMining(); resetCoreUi();
+  enemies.length = 0; fx.length = 0; parts.length = 0; resetTurrets(); resetCards(); resetMining(); resetCoreUi(); closeArmory();
   Object.assign(G, { phase:'wave', wave:0, paused:false, picking:false, hp:FORT.hp, hpMax:FORT.hp, regen:0, hitT:0,
     energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, swallowed:false, bossTest, god:G.god || false, evoQueue:[], hitStop:0, pickQueue:0, bonusPick:false, cores:[], coreQueue:0, magnet:ORE.magnet });
   G.wave = start; setView(wantView(), false);
@@ -58,7 +59,7 @@ function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoP
 // bots: keep choosing while a dialog is up (a choice can open the next one straight away)
 function autoChoose(){ for (let i = 0; i < 6 && G.picking && AUTO; i++) choose(AUTO === 'smart' ? smartPick() : (Math.random()*3)|0); }
 function update(dt){
-  if (G.god) G.hp = G.hpMax;
+  if (G.god && !G.swallowed) G.hp = G.hpMax;
   updWaves(dt);
   if (wantView() !== V.mode) setView(wantView(), true);
   updRocks(dt);
@@ -114,6 +115,7 @@ function drawHud(){
   }
   set('vig', Math.round(vig*50), v => hud.vig.style.opacity = v/50);
   set('wn', G.wave, v => hud.wn.textContent = v);
+  set('cb', G.cores.length, v => { const b = $('corebadge'); b.hidden = !v; b.textContent = v; });
   set('wf', Math.round((G.waveTotal ? G.waveDone/G.waveTotal : 0)*100), v => hud.wfill.style.width = v + '%');
   set('hp', Math.ceil(G.hp), v => { hud.hpn.textContent = v; hud.hpfill.style.width = (v/G.hpMax*100) + '%'; });
   set('hit', G.hitT > .5, v => hud.hpfill.parentNode.classList.toggle('hit', v));
@@ -133,13 +135,13 @@ function buildList(){
   if (!turrets.length) return '';
   return turrets.map(t => {
     const ups = UPG[t.type].filter(u => t.lv[u.id]).map(u => `${u.ko}${u.max > 1 ? ' ' + t.lv[u.id] : ''}`).join(' · ') || '강화 없음', ev = evoOf(t);
-    const lk = linksOf(t.cores), cores = t.cores.length ? `<span>코어 · ${t.cores.map(c => `${gradeOf(c).ko} ${coreName(c)}`).join(' · ')}${lk.length ? ` · 링크: ${lk.map(L => L.ko).join(', ')}` : ''}</span>` : '';
+    const lk = [...(t.links || [])].map(id => LINKS.find(L => L.id === id)), cores = t.cores.length ? `<span>코어 · ${t.cores.map(c => `${gradeOf(c).ko} ${coreName(c)}`).join(' · ')}${lk.length ? ` · 링크: ${lk.map(L => L.ko).join(', ')}` : ''}</span>` : '';
     return `<li style="--c:rgb(${t.T.col})"><b>${ev ? ev.ko : t.T.ko}</b> <em>MK ${['I', 'II', 'III'][tierOf(t) - 1]} · +${levelOf(t)}</em><span>${ups}</span>${cores}</li>`;
   }).join('');
 }
 function endRun(win){
   const m = Math.floor(G.runTime/60), s = Math.floor(G.runTime % 60);
-  hud.over.querySelector('h2').textContent = win ? 'EARTH HOLDS' : 'FORTRESS DOWN';
+  hud.over.querySelector('h2').textContent = win ? 'EARTH HOLDS' : G.swallowed ? 'SWALLOWED' : 'FORTRESS DOWN';
   hud.over.querySelector('.osub').textContent = win ? `30웨이브를 모두 막았어요` : G.swallowed ? '지구가 블랙홀에 삼켜졌어요' : `웨이브 ${G.wave}에서 무너졌어요`;
   hud.over.querySelector('.ostats').innerHTML = `<span><b>${G.wave}</b>웨이브</span><span><b>${G.kills}</b>처치</span><span><b>${m}:${String(s).padStart(2, '0')}</b>시간</span>`;
   hud.over.querySelector('.obuild').innerHTML = buildList();
@@ -147,7 +149,7 @@ function endRun(win){
 }
 function setPaused(p){
   G.paused = p; hud.pausebox.hidden = !p; hud.pause.setAttribute('aria-pressed', p);
-  if (p){ hud.build.innerHTML = buildList() || '<li>포탑 없음</li>'; $('pcores').hidden = !G.cores.length; $('pcores').textContent = `보관 중인 코어 ${G.cores.length}개 끼우기`; }
+  if (p) hud.build.innerHTML = buildList() || '<li>포탑 없음</li>';
 }
 
 hud.spd.addEventListener('click', () => { G.speed = G.speed === 1 ? 2 : 1; hud.spd.textContent = `×${G.speed}`; hud.spd.setAttribute('aria-pressed', G.speed > 1); });
@@ -177,9 +179,17 @@ const muteBtn = $('mute');
 const showMute = () => { muteBtn.setAttribute('aria-pressed', isMuted()); muteBtn.setAttribute('aria-label', isMuted() ? '소리 켜기' : '소리 끄기'); };
 muteBtn.addEventListener('click', () => { setMuted(!isMuted()); showMute(); }); showMute();
 $('pcodex').addEventListener('click', () => openCodex());
-$('pcores').addEventListener('click', () => { setPaused(false); openCoreDialog(); });
+$('pcores').addEventListener('click', () => { setPaused(false); openArmory(); });
+$('coresbtn').addEventListener('click', () => openArmory());
+// tap a turret on the field to open its slots
+cv.addEventListener('pointerup', e => {
+  if (G.paused || G.picking || G.coreOpen || G.armoryOpen || G.codexOpen || G.phase === 'over') return;
+  const x = e.clientX/ZOOM - V.ox, y = e.clientY/ZOOM;
+  let best = null, bd = 46; for (const t of turrets){ const d = Math.hypot(t.px - x, t.py - y); if (d < bd){ bd = d; best = t; } }
+  if (best) openArmory(best);
+});
 addEventListener('keydown', e => {
-  if (G.codexOpen || G.coreOpen) return;
+  if (G.codexOpen || G.coreOpen || G.armoryOpen) return;
   if (e.key === 'Escape' || e.key === 'p') setPaused(!G.paused);
   if (e.key === 'c') openCodex();
   if (e.key === 'm') muteBtn.click();
@@ -193,7 +203,7 @@ function frame(now){
   const dt = Math.max(0, Math.min(.033, (now - last)/1000)); last = now;   // the first rAF stamp can predate `last`
   resetJag();
   autoChoose();
-  const running = !G.paused && !G.picking && !G.coreOpen && !G.codexOpen && (G.phase === 'wave' || G.phase === 'break');
+  const running = !G.paused && !G.picking && !G.coreOpen && !G.armoryOpen && !G.codexOpen && (G.phase === 'wave' || G.phase === 'break');
   if (running && G.hitStop > 0){ G.hitStop -= dt; tickClock(dt*.1); }      // a beat of stillness on big kills and hits
   else if (running){
     const steps = TEST_SPEED || G.speed;

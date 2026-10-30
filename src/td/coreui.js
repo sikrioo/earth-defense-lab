@@ -1,7 +1,8 @@
 /* ---------- fortress mode: the energy-core dialog — read the core, see what links it would make, fit it or keep it ---------- */
 import { ELEMENTS, TIERS } from './data.js';
 import { G } from './state.js';
-import { drawTurretIcon, evoOf, installCore, levelOf, slotsOf, turrets } from './turrets.js';
+import { coreAt, drawTurretIcon, evoOf, installCore, levelOf, slotsOf, turrets } from './turrets.js';
+import { LINKS } from './data.js';
 import { coreIcon } from './mining.js';
 import { affixText, coreCol, coreName, gradeOf, linksOf } from './cores.js';
 
@@ -25,13 +26,13 @@ export function openCoreDialog(){
     const now = linksOf(t.cores).map(L => L.id), after = linksOf([...t.cores, c]).filter(L => !now.includes(L.id));
     const next = n < 3 ? `강화 ${TIERS[n]}회면 슬롯 ${n + 1}개` : '';
     const status = full ? `슬롯 가득${next ? ' · ' + next : ''}` : `빈 슬롯 ${n - t.cores.length}${next ? ' · ' + next : ''}`;
-    const links = linksOf(t.cores);
+    const links = [...(t.links || [])].map(id => LINKS.find(L => L.id === id));
     const b = document.createElement('button'); b.type = 'button'; b.className = 'cd-row'; b.style.setProperty('--t', rgbs(t.T.col));
     b.disabled = full;
     b.innerHTML = `<canvas width="88" height="88" aria-hidden="true"></canvas><span><b>${(evoOf(t) || t.T).ko}</b> <small>+${lv} · ${status}</small>
-        ${links.length ? `<small class="cd-link">링크 · ${links.map(L => L.ko).join(' · ')}</small>` : ''}
-        ${!full && after.length ? `<small class="cd-new">끼우면 링크 · ${after.map(L => `${L.ko} (${L.d})`).join(' · ')}</small>` : ''}</span>
-      <span class="cd-slots" aria-label="코어 슬롯 ${t.cores.length}/${n}">${Array.from({ length:n }, (_, i) => t.cores[i] ? `<i class="on" style="--k:${rgbs(coreCol(t.cores[i]))}"></i>` : '<i></i>').join('')}</span>`;
+        ${links.length ? `<small class="cd-link">켜진 링크 · ${links.map(L => L.ko).join(' · ')}</small>` : ''}
+        ${!full && after.length ? `<small class="cd-new">끼우면 고를 수 있는 링크 · ${after.map(L => `${L.ko} (${L.d})`).join(' · ')}</small>` : ''}</span>
+      <span class="cd-slots" aria-label="코어 슬롯 ${t.cores.length}/${n}">${Array.from({ length:n }, (_, i) => coreAt(t, i) ? `<i class="on" style="--k:${rgbs(coreCol(coreAt(t, i)))}"></i>` : '<i></i>').join('')}</span>`;
     drawTurretIcon(b.querySelector('canvas'), t.type);
     b.addEventListener('click', () => fit(t));
     list.appendChild(b);

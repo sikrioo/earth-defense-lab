@@ -22,7 +22,7 @@ export const ROCK = {
   dark:    { ko:'암흑 물질', desc:'빛을 내지 않는 덩어리. 방어막 가까이 와야 보이고, 그 전에는 조준할 수 없다 (범위 공격은 맞는다).', hp:180, r:18, speed:46, dmg:30, energy:5, col:[170,130,230], sides:8, dark:true },
   node:    { ko:'불안정 핵', desc:'블랙홀 둘레를 도는 불안정한 핵. 모두 부숴야 블랙홀 본체가 잠깐 드러난다.', hp:900, r:16, speed:0, dmg:0, energy:8, col:[255,170,90], sides:6, node:true },
   saturn:  { ko:'토성의 잔해', desc:'보스. 사라진 토성의 부서진 핵. 고리 조각을 흩뿌리고, 고리가 남아 있는 동안은 피해를 절반만 받는다.', hp:8000, r:74, speed:9, dmg:700, energy:140, col:[255,200,120], boss:true, saturn:true, custom:true, every:2.8 },
-  blackhole:{ ko:'블랙홀', desc:'최종 보스. 목성과 토성을 삼킨 것. 멈추지 않고 지구로 다가오며 탄환과 광물을 삼키고, 가까워질수록 요새를 빨아들인다. 방어막에 닿으면 지구가 삼켜진다. 둘레를 도는 불안정 핵을 모두 부숴야 본체가 7초 동안 드러나고 뒤로 밀려난다.', hp:9000, r:80, speed:5, dmg:5000, energy:300, col:[255,130,60], boss:true, blackhole:true, custom:true, spawns:'dark', every:4.5 },
+  blackhole:{ ko:'블랙홀', desc:'최종 보스. 목성과 토성을 삼킨 것. 멈추지 않고 지구로 다가오며 탄환과 광물을 삼키고, 가까워질수록 요새를 빨아들인다. 방어막에 닿으면 지구가 삼켜진다. 둘레를 도는 불안정 핵을 모두 부숴야 본체가 7초 동안 드러나고 거의 멈춘다.', hp:9000, r:80, speed:5, dmg:5000, energy:300, col:[255,130,60], boss:true, blackhole:true, custom:true, spawns:'dark', every:4.5 },
   planet:  { ko:'떠돌이 행성', desc:'보스. 목성 궤도에서 밀려난 떠돌이 행성. 닿으면 요새가 거의 무너진다.', hp:9000, r:86, speed:9,   dmg:600, energy:120, col:[255,70,60],   boss:true, planet:true, spawns:'dart', every:2.4 },
 };
 

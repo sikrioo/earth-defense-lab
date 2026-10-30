@@ -30,12 +30,15 @@ export function recompute(t){
   for (const u of UPG[t.type]) for (let i = 0; i < (t.lv[u.id] || 0); i++) u.apply(s, b);
   if (t.evo){ const e = EVO[t.type].find(x => x.id === t.evo); if (e) e.apply(s, b); }
   // cores: stat affixes scale the gun; the rest become per-hit modifiers, and the elements switch on links
-  const mods = {};
-  for (const c of t.cores) for (const a of c.affixes){
+  const mods = {}, active = t.cores.filter(c => !(c.sync > 0));      // a core still settling in does nothing yet
+  for (const c of active) for (const a of c.affixes){
     if (CORE_KEYS[a.k]){ const f = 1 + a.v/100; for (const k of CORE_KEYS[a.k].up) if (k in s) s[k] *= f; for (const k of CORE_KEYS[a.k].down) if (k in s) s[k] /= f; }
     else mods[a.k] = (mods[a.k] || 0) + a.v;
   }
-  t.mods = mods; t.links = new Set(linksOf(t.cores).map(L => L.id));
+  // one link runs per turret: the one the player picked, else the first one the cores allow
+  t.linkOpts = linksOf(active);
+  const sel = t.linkOpts.find(L => L.id === t.linkSel) || t.linkOpts[0];
+  t.mods = mods; t.links = new Set(sel ? [sel.id] : []);
   // intervals and the like never drop below a quarter of base
   for (const k of ['every', 'charge', 'recharge', 'cool', 'rearm', 'heatPer', 'spread']) if (k in s) s[k] = Math.max(b[k]*.25, s[k]);
   t.s = s;
@@ -59,11 +62,25 @@ export const evoOf = t => t.evo ? EVO[t.type].find(x => x.id === t.evo) : null;
 export const levelOf = t => Object.values(t.lv).reduce((a, b) => a + b, 0);
 // energy cores: each turret has 1–3 slots (by how upgraded it is); a core scales its stats for good
 export const slotsOf = t => slotsFor(levelOf(t));
-export function installCore(t, core){
-  if (t.cores.length >= slotsOf(t)) return false;
-  t.cores.push(core); recompute(t); ringFx(t.x, t.y, 6, 70, .6, coreCol(core), 4);
+// slots are numbered 0..2; a core fitted or moved needs a few seconds to settle before it works
+export const SYNC = 3;
+export const coreAt = (t, i) => t.cores.find(c => c.slot === i) || null;
+export const freeSlots = t => [...Array(slotsOf(t)).keys()].filter(i => !coreAt(t, i));
+export function installCore(t, core, slot = freeSlots(t)[0]){
+  if (slot === undefined || slot >= slotsOf(t) || coreAt(t, slot)) return false;
+  core.slot = slot; core.sync = SYNC; t.cores.push(core); recompute(t); ringFx(t.x, t.y, 6, 70, .6, coreCol(core), 4);
   return true;
 }
+export function removeCore(t, core){
+  const i = t.cores.indexOf(core); if (i < 0) return null;
+  t.cores.splice(i, 1); delete core.slot; core.sync = 0; recompute(t);
+  return core;
+}
+export function moveCore(t, core, slot){
+  if (slot >= slotsOf(t) || coreAt(t, slot)) return false;
+  core.slot = slot; core.sync = SYNC; recompute(t); return true;
+}
+export function setLink(t, id){ t.linkSel = id; recompute(t); }
 // keep turret positions in step with the view (resizes move the platform)
 // each turret stands on its pad facing out from Earth: (nx, ny) is that outward direction, (px, py) the gun's pivot
 function place(t){
@@ -95,6 +112,7 @@ export function updTurrets(dt){
 }
 function turretStep(t, dt){
   {
+    for (const c of t.cores) if (c.sync > 0){ c.sync -= dt; if (c.sync <= 0){ c.sync = 0; recompute(t); ringFx(t.x, t.y, 6, 50, .4, coreCol(c), 3); } }
     const s = t.s; t.cd -= dt; t.kick = Math.max(0, (t.kick || 0) - dt*7);
     if (t.emp > 0){ t.emp -= dt; t.beams = []; t.firing = false; return; }      // knocked out by a plasma pulse
     if (t.type === 'gatling'){
@@ -560,9 +578,9 @@ export function drawTurrets(){
       ctx.fillStyle = rgb(t.T.col); ctx.fillText(`+${lv}`, o.x, o.y); ctx.globalCompositeOperation = 'lighter'; }
     // core slots: filled with the core's colour, empty ones as outlines
     { const n = slotsOf(t), o = along(t, -33 - (bar ? 9 : 0)); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-      for (let i = 0; i < n; i++){ const x = o.x + (i - (n - 1)/2)*9 - 3, y = o.y - 3, c = t.cores[i];
-        ctx.fillStyle = '#05070c'; ctx.fillRect(x - 1, y - 1, 8, 8);
-        if (c){ ctx.fillStyle = rgb(coreCol(c)); ctx.fillRect(x, y, 6, 6); } else { ctx.strokeStyle = 'rgba(200,220,255,.45)'; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, 5, 5); } }
+      for (let i = 0; i < n; i++){ const x = o.x + (i - (n - 1)/2)*9 - 3, y = o.y - 3, c = coreAt(t, i);
+        ctx.fillStyle = '#05070c'; ctx.globalAlpha = 1; ctx.fillRect(x - 1, y - 1, 8, 8);
+        if (c){ ctx.globalAlpha = c.sync > 0 ? .35 + .35*Math.sin(time*14) : 1; ctx.fillStyle = rgb(coreCol(c)); ctx.fillRect(x, y, 6, 6); ctx.globalAlpha = 1; } else { ctx.strokeStyle = 'rgba(200,220,255,.45)'; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, 5, 5); } }
       if (t.links && t.links.size){ ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .6 + .3*Math.sin(time*4); ctx.fillStyle = '#ffd36a'; ctx.fillRect(o.x - (n - 1)*4.5 - 3, o.y + 4, (n - 1)*9 + 6, 1.2); }
       ctx.globalCompositeOperation = 'lighter'; }
     if (t.type === 'laser' && t.beams) t.beams.forEach((e, i) => {

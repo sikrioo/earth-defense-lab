@@ -18,6 +18,7 @@
     <div class="wave" aria-live="polite"><span class="wl">WAVE</span><b id="wn">1</b><span class="wt">/ 30</span></div>
     <div class="wbar" aria-hidden="true"><i id="wfill"></i></div>
     <div class="tbtns">
+      <button type="button" id="coresbtn" aria-label="코어 관리">코어<i id="corebadge" hidden></i></button>
       <button type="button" id="mute" aria-pressed="false" aria-label="소리 끄기">♪</button>
       <button type="button" id="codexbtn" aria-label="도감">도감</button>
       <button type="button" id="spd" aria-pressed="false" aria-label="게임 속도">×1</button>
@@ -41,12 +42,30 @@
   </div>
 </div>
 
+<div class="armory" id="armory" hidden role="dialog" aria-modal="true" aria-label="포탑 코어 관리">
+  <div class="am-box">
+    <header class="am-head"><h2>CORES</h2><p class="am-sub">포탑을 고르고 코어를 끼우거나 빼세요</p><button type="button" class="am-close" aria-label="닫기">✕</button></header>
+    <div class="am-turrets" role="tablist" aria-label="포탑"></div>
+    <section class="am-turret">
+      <div class="am-title"></div>
+      <div class="am-slots"></div>
+      <div class="am-links"></div>
+      <div class="am-detail"></div>
+    </section>
+    <section class="am-store" data-drop="store">
+      <h3>보관함 <span class="am-count"></span></h3>
+      <div class="am-chips"></div>
+      <p class="am-hint">코어를 빈 슬롯으로 끌어다 놓거나, 탭해서 고른 뒤 버튼을 누르세요 · 끼우거나 옮긴 코어는 3초 동안 안정화된 뒤에 작동해요</p>
+    </section>
+  </div>
+</div>
+
 <div class="pick coredlg" id="coredlg" hidden role="dialog" aria-modal="true" aria-label="에너지 코어 장착">
   <div class="pk-box">
     <h2 class="pk-title">ENERGY CORE</h2>
     <div class="cd-core"><canvas width="96" height="96" aria-hidden="true"></canvas><div><b class="cd-name"></b><span class="cd-desc"></span><span class="cd-store"></span></div></div>
     <div class="cd-list"></div>
-    <p class="pk-hint">코어는 한 번 끼우면 빼지 못해요 · 슬롯은 MK II(강화 6회)에 2개, MK III(14회)에 3개</p>
+    <p class="pk-hint">슬롯은 MK II(강화 6회)에 2개, MK III(14회)에 3개 · 포탑을 탭하면 코어를 빼고 옮길 수 있어요</p>
     <button type="button" class="cd-keep">보관하고 나중에 끼우기</button>
   </div>
 </div>
@@ -57,7 +76,7 @@
     <p class="sheet-sub">지금 빌드</p>
     <ul class="build" id="build"></ul>
     <div class="sheet-btns"><button type="button" id="resume" class="primary">계속하기</button><button type="button" id="restart">처음부터</button></div>
-    <button type="button" id="pcores" class="wide" hidden>보관 중인 코어 끼우기</button>
+    <button type="button" id="pcores" class="wide">코어 관리 · 슬롯과 링크</button>
     <button type="button" id="pcodex" class="wide">도감 · 무기와 적</button>
     <details class="stage" id="stage">
       <summary>테스트 · 스테이지 선택</summary>
@@ -89,7 +108,6 @@
         <label class="st-god"><input type="checkbox" id="stgod" checked> 무적 (요새 체력이 줄지 않음 · 보스 테스트용)</label>
       </div>
     </details>
-    <a class="classic" href="./classic.html">클래식 모드 (예전 버전) →</a>
   </div>
 </div>
 
