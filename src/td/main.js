@@ -267,4 +267,4 @@ newRun(QS_BOSS || START_WAVE);
 }
 requestAnimationFrame(frame);
 // for tests and tinkering in the console
-window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret, newRun, resetTurrets, spawnRock, hurt, rollCore, namedCore };
+window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret, newRun, resetTurrets, spawnRock, hurt, rollCore, namedCore, recompute };

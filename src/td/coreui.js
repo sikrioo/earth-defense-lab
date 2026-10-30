@@ -33,7 +33,7 @@ export function openCoreDialog(){
         ${links.length ? `<small class="cd-link">켜진 링크 · ${links.map(L => L.ko).join(' · ')}</small>` : ''}
         ${!full && after.length ? `<small class="cd-new">끼우면 고를 수 있는 링크 · ${after.map(L => `${L.ko} (${L.d})`).join(' · ')}</small>` : ''}</span>
       <span class="cd-slots" aria-label="코어 슬롯 ${t.cores.length}/${n}">${Array.from({ length:n }, (_, i) => coreAt(t, i) ? `<i class="on" style="--k:${rgbs(coreCol(coreAt(t, i)))}"></i>` : '<i></i>').join('')}</span>`;
-    drawTurretIcon(b.querySelector('canvas'), t.type);
+    drawTurretIcon(b.querySelector('canvas'), t.type, t);
     b.addEventListener('click', () => fit(t));
     list.appendChild(b);
   }

@@ -118,8 +118,8 @@ export const TURRET = {
     base:{ dps:55, radius:105, dur:3.5, every:4, range:640, delay:.6, slow:0, drift:0 } },
   miner:   { ko:'채굴기', en:'MINER', col:[130,240,150], role:'자원 · 채굴', desc:'채굴 드론을 띄워 부서진 운석의 광석을 실어 온다',
     pros:['빠르고 많이 실어 와서 카드를 더 자주 받음', '모든 등급의 광석과 에너지 코어까지 운반 (요새 기본 드론은 규석·빙정만)'],
-    cons:'공격을 전혀 안 함: 발판 하나만큼 화력이 줄어듦 · 드론이 운석에 부딪히면 격추돼 4초 뒤 복귀',
-    base:{ drones:2, speed:340, scoop:44, cap:10, yield:.15, armor:0, tier:5, cores:1 } },
+    cons:'공격을 전혀 안 함: 발판 하나만큼 화력이 줄어듦 · 드론이 운석을 피해 돌아가느라 운석이 많으면 느려짐',
+    base:{ drones:2, speed:340, scoop:44, cap:10, yield:.15, beam:0, tier:5, cores:1 } },
 };
 // ore: what a broken rock leaves behind. Only what the drones (or the shield's magnet) bring home becomes energy.
 // Ore comes in five grades: the rarer, the more each piece is worth. What a rock drops depends on the rock and
@@ -135,7 +135,7 @@ export const ORE = { yieldMul:1.3, life:12, coreLife:45, magnet:46, coreDrift:24
   ],
 
   core:{ ko:'에너지 코어', col:[255,220,140] },
-  base:{ drones:2, speed:230, scoop:24, cap:3, yield:0, armor:0, tier:2, cores:0 } };   // the fortress's own two slow drones
+  base:{ drones:2, speed:230, scoop:24, cap:3, yield:0, beam:0, tier:2, cores:0 } };   // the fortress's own two slow drones
 // Energy cores work like jewels: each has a grade, an element and random affixes rolled inside fixed ranges.
 // Grades (최하급 → 최상급): how many affixes and which part of the range they roll in. Named cores come from bosses: fixed affixes + one random.
 export const GRADES = {
@@ -297,7 +297,7 @@ export const UPG = {
     { id:'mn_cap',  ko:'적재함 확장', d:'한 번에 싣는 양 +20%',             max:5,  apply:pct('cap', .2) },
     { id:'mn_scoop',ko:'광역 집게',   d:'한 번에 쓸어 담는 반경 +12%',        max:4,  apply:pct('scoop', .12) },
     { id:'mn_yield',ko:'정제기',     d:'이 채굴기가 실어 온 광석 가치 +6%p', max:5,  apply:s => { s.yield += .06; } },
-    { id:'mn_armor',ko:'장갑 드론',   d:'운석에 부딪혀도 격추되지 않음',      max:1,  apply:s => { s.armor = 1; } },
+    { id:'mn_tractor',ko:'견인 빔',  d:'멀리 있는 광석을 빔으로 끌어와 담음 (집게 반경 +80%)', max:1, apply:(s, b) => { s.scoop += b.scoop*.8; } },
   ],
 };
 
@@ -351,9 +351,11 @@ export const EVO = {
     { id:'strike',  ko:'연속 낙뢰',   en:'STRIKE',    d:'재사용 절반, 피해 ×1.3 · 지속 -40%',      apply:s => { s.every *= .5; s.dps *= 1.3; s.dur *= .6; } },
   ],
   miner: [
-    { id:'fleet',   ko:'채굴 함대',   en:'FLEET',     d:'드론 +3, 속도 +20%',                    apply:s => { s.drones += 3; s.speed *= 1.2; } },
-    { id:'refinery',ko:'정제소',      en:'REFINERY',  d:'정제 +50%p, 적재량 2배, 장갑 드론',       apply:s => { s.yield += .5; s.cap *= 2; s.armor = 1; } },
+    { id:'hauler',  ko:'수송 함대',   en:'HAULER',    d:'드론이 크고 느려짐 · 적재량 ×2.5, 드론 +1 · 속도 -25%',          apply:s => { s.cap *= 2.5; s.drones += 1; s.speed *= .75; } },
+    { id:'runner',  ko:'쾌속 함대',   en:'RUNNER',    d:'드론이 작고 빨라짐 · 속도 ×1.8, 드론 +2 · 적재량 절반',          apply:s => { s.speed *= 1.8; s.drones += 2; s.cap *= .5; } },
+    { id:'tractor', ko:'견인 함대',   en:'TRACTOR',   d:'광석까지 가지 않고 멀리서 빔으로 끌어옴 (빔 거리 170) · 드론 +1', apply:s => { s.beam = 170; s.drones += 1; } },
   ],
+
 };
 
 // fortress cards

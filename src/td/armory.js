@@ -43,7 +43,7 @@ function render(){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'am-tab'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', t === cur);
     b.style.setProperty('--t', rgbs(t.T.col));
     b.innerHTML = `<canvas width="72" height="72"></canvas><span>${(evoOf(t) || t.T).ko}</span><em>MK ${['I', 'II', 'III'][tierOf(t) - 1]} · ${t.cores.length}/${slotsOf(t)}</em>`;
-    drawTurretIcon(b.querySelector('canvas'), t.type);
+    drawTurretIcon(b.querySelector('canvas'), t.type, t);
     b.addEventListener('click', () => { cur = t; sel = null; render(); });
     tabs.appendChild(b);
   }

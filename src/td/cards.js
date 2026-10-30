@@ -68,7 +68,7 @@ export function open(onlyNew = false, evoT = null){
     b.innerHTML = `<span class="ck">${i + 1}</span><canvas width="112" height="112" aria-hidden="true"></canvas>
       <span class="ctxt"><span class="ctag">${tag}</span><b>${title}</b><span class="csub">${sub}</span><span class="cdesc">${desc}</span>${pips ? `<span class="cpips">${pips}</span>` : ''}</span>`;
     const cv = b.querySelector('canvas');
-    if (o.kind === 'fort') drawFortIcon(cv); else drawTurretIcon(cv, o.kind === 'new' ? o.type : o.t.type);
+    if (o.kind === 'fort') drawFortIcon(cv); else drawTurretIcon(cv, o.kind === 'new' ? o.type : o.t.type, o.kind === 'new' ? null : o.t);
     b.addEventListener('click', () => choose(i));
     row.appendChild(b);
   });

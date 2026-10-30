@@ -78,7 +78,7 @@ function render(){
     }
   } else if (tab === 'mining'){
     const note = document.createElement('div'); note.className = 'cx-note';
-    note.innerHTML = `<p><b>채굴</b> 부서진 운석은 광물을 남기고, 요새로 실어 와야 에너지가 돼요. 방어막 가까이 떠다니는 건 자석이 끌어와요. 드론은 운석에 부딪히면 격추돼 4초 뒤 복귀하고, 싣고 있던 건 그 자리에 떨어져요.</p>
+    note.innerHTML = `<p><b>채굴</b> 부서진 운석은 광물을 남기고, 요새로 실어 와야 에너지가 돼요. 방어막 가까이 떠다니는 건 자석이 끌어와요. 드론은 운석을 보면 비켜 돌아가요(격추되지 않아요). 운석이 많으면 돌아가느라 느려지고, 플라즈마 구의 전자기 펄스에는 잠깐 멈춰요.</p>
       <p><b>등급과 코어 슬롯</b> 포탑은 MK I로 시작해 강화 6회에 MK II, 14회에 MK III가 돼요. 등급마다 코어 슬롯이 1개씩 생기고, MK III에서는 진화 경로 2개 중 하나를 골라요. 코어는 포탑을 탭해서 빼고 끼우고 옮길 수 있어요.</p>`;
     list.appendChild(note);
     section('채굴 드론');
@@ -86,6 +86,11 @@ function render(){
     item([200,215,235], '요새 기본 드론', 'BASE', '느리고 조금씩 실어 오는 요새의 일꾼 2대. 규석과 빙정(1~2등급)만 나를 수 있어요.', droneRows(ORE.base), c => drawWorkerIcon(c, [200,215,235], [1, 2, 1]));
     item(M.col, '채굴기 드론', 'MINER', `채굴기 포탑 하나에 딸린 드론. 빠르고 많이 싣고, 모든 등급의 광석과 에너지 코어까지 날라요. 정제기로 실어 온 광석 가치도 올려요.`, droneRows(M.base), c => drawWorkerIcon(c, M.col, [4, 2, 'core', 5]),
       `<details><summary>강화 카드 ${UPG.miner.length}종</summary><ul class="cx-ups">${UPG.miner.map(u => `<li${u.max === 1 ? ' class="core"' : ''}><b>${u.ko}</b><span>${u.d}</span><em>${u.max === 1 ? '핵심' : '최대 ' + u.max}</em></li>`).join('')}</ul></details>`);
+    // the drone grows with its miner, then the MK III evolution picks the fleet
+    section('채굴기 드론의 성장');
+    item(M.col, 'MK II 드론', 'MK II', '조명이 켜지고 집게가 두 쌍이 돼요. 채굴기를 강화 6회 하면 이 모습이에요.', [['조건', '채굴기 MK II']], c => drawWorkerIcon(c, M.col, [1, 2], { tier:2 }));
+    item(M.col, 'MK III 드론', 'MK III', '프레임이 커지고 엔진이 두 개가 돼요. 이어서 함대 하나를 골라요.', [['조건', '채굴기 MK III']], c => drawWorkerIcon(c, M.col, [3, 2, 1], { tier:3 }));
+    for (const e of EVO.miner) item(M.col, e.ko, e.en, e.d, [['조건', 'MK III 진화']], c => drawWorkerIcon(c, M.col, [4, 3, 'core', 2], { tier:3, evo:e.id }));
     section('광물');
     ORE.tiers.forEach((O, i) => item(O.col, `${i + 1}등급 · ${O.ko}`, O.en, `${O.real}. ${O.from}에서 나와요.`,
       [['가치', `×${O.mul}`], ['사라짐', `${Math.round(ORE.life*(1 + i*.1))}초`], ['운반', i < ORE.base.tier ? '모든 드론' : '채굴기 드론만']], c => drawOreIcon(c, i + 1)));

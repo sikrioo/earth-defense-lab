@@ -9,7 +9,7 @@ import { coreCol, dropFor, gradeOf } from './cores.js';
 import { G, enemies } from './state.js';
 import { V, distC } from './view.js';
 import { neonCircle, neonPath, rgb, ringFx } from './fx.js';
-import { turrets } from './turrets.js';
+import { tierOf, turrets } from './turrets.js';
 import { sfx } from './sfx.js';
 import { tip } from './tips.js';
 import { pullOre } from './bosses.js';
@@ -62,7 +62,7 @@ function syncDrones(){
   for (let i = miners.length - 1; i >= 0; i--){ const d = miners[i]; if (d.owner && !turrets.includes(d.owner)) miners.splice(i, 1); }
   for (const w of want){
     const have = miners.filter(d => d.owner === w.owner).length;
-    for (let i = have; i < w.n; i++){ const d = { owner:w.owner, i, state:'home', x:0, y:0, vx:0, vy:0, tgt:null, cargo:0, cores:[], downT:0, load:[] }; const h = homeOf(d); d.x = h.x; d.y = h.y; miners.push(d); }
+    for (let i = have; i < w.n; i++){ const d = { owner:w.owner, i, state:'home', x:0, y:0, vx:0, vy:0, tgt:null, cargo:0, cores:[], stunT:0, load:[], beams:[] }; const h = homeOf(d); d.x = h.x; d.y = h.y; miners.push(d); }
   }
 }
 function pickOre(d, s){
@@ -78,25 +78,43 @@ function pickOre(d, s){
   return best;
 }
 function updDrone(d, dt){
-  const s = d.owner ? d.owner.s : ORE.base, sp = s.speed*V.spd, home = homeOf(d);
-  if (d.state === 'down'){ d.downT -= dt; if (d.downT <= 0){ d.state = 'home'; d.x = home.x; d.y = home.y; } return; }
+  const s = d.owner ? d.owner.s : ORE.base, home = homeOf(d);
+  let sp = s.speed*V.spd;
+  // a plasma pulse stuns drones for a moment; the black hole's pull slows them
+  if (d.stunT > 0){ d.stunT -= dt; d.vx *= Math.exp(-4*dt); d.vy *= Math.exp(-4*dt); d.x += d.vx*dt; d.y += d.vy*dt; return; }
+  for (const e of enemies) if (!e.dead && e.T.blackhole && Math.hypot(e.x - d.x, e.y - d.y) < e.r*4) sp *= .5;
   if (d.state === 'home'){
     d.x = home.x; d.y = home.y;
     const o = pickOre(d, s); if (!o) return;
     o.claim = d; d.tgt = o; d.state = 'go';
   }
   let gx = home.x, gy = home.y;
+  if (d.state === 'pull'){
+    // tractor fleet: hold position and reel in everything in beam range
+    d.pullT -= dt; d.vx *= Math.exp(-6*dt); d.vy *= Math.exp(-6*dt); d.x += d.vx*dt; d.y += d.vy*dt;
+    d.beams = [];
+    for (let i = ores.length - 1; i >= 0 && d.cargo < s.cap; i--){
+      const o = ores[i]; if (!canCarry(s, o)) continue;
+      const dx = d.x - o.x, dy = d.y - o.y, dd = Math.hypot(dx, dy); if (dd > s.beam) continue;
+      if (o.claim && o.claim !== d) continue;
+      o.claim = d; d.beams.push(o);
+      const v = Math.min(dd, 300*dt); o.x += dx/(dd || 1)*v; o.y += dy/(dd || 1)*v; o.t = Math.min(o.t, o.life - .5);
+      if (dd < 12){ take(d, s, o); ores.splice(i, 1); }
+    }
+    if (d.pullT <= 0 || d.cargo >= s.cap || !d.beams.length){ d.beams = []; d.state = 'back'; }
+    return;
+  }
   if (d.state === 'go'){
     if (!ores.includes(d.tgt)){ const o = pickOre(d, s); if (o){ o.claim = d; d.tgt = o; } else { d.tgt = null; d.state = 'back'; } }
     if (d.tgt){ gx = d.tgt.x; gy = d.tgt.y; }
-    if (d.tgt && Math.hypot(gx - d.x, gy - d.y) < 8){
+    const reach = s.beam ? s.beam*.85 : 8;
+    if (d.tgt && Math.hypot(gx - d.x, gy - d.y) < reach){
+      if (s.beam){ d.state = 'pull'; d.pullT = 1.4; return; }
       // scoop up everything in reach that this drone can carry, until the hold is full
       const r = s.scoop;
       for (let i = ores.length - 1; i >= 0 && d.cargo < s.cap; i--){
         const o = ores[i]; if (!canCarry(s, o) || Math.hypot(o.x - d.x, o.y - d.y) > r) continue;
-        if (o.core) d.cores.push(o.core); else d.cargo += o.v*(1 + (s.yield || 0));
-        if (d.load.length < 5) d.load.push(o.core ? 'core' : o.tier);
-        ores.splice(i, 1);
+        take(d, s, o); ores.splice(i, 1);
       }
       sprite(d.x, d.y, r, ORE_COL, .25);
       d.tgt = null;
@@ -107,21 +125,29 @@ function updDrone(d, dt){
   if (d.state === 'back' && Math.hypot(home.x - d.x, home.y - d.y) < 10){
     deposit(d.x, d.y, d.cargo, d.cores); d.cargo = 0; d.cores = []; d.load = []; d.state = 'home'; return;
   }
-  const dx = gx - d.x, dy = gy - d.y, dd = Math.hypot(dx, dy) || 1, k = Math.min(1, dt*7);
-  d.vx += (dx/dd*sp - d.vx)*k; d.vy += (dy/dd*sp - d.vy)*k;
-  d.x += d.vx*dt; d.y += d.vy*dt;
-  // rocks swat drones out of the sky (and whatever they carried falls back out as ore)
-  if (!s.armor) for (const e of enemies){
-    if (e.dead || Math.hypot(e.x - d.x, e.y - d.y) > e.r + 5) continue;
-    if (d.cargo > 0) ores.push({ kind:'ore', tier:1, x:d.x, y:d.y, vx:rand(-30, 30), vy:rand(-30, 30), v:d.cargo, t:0, life:ORE.life*.6, rot:0, claim:null });
-    for (const c of d.cores) ores.push({ kind:'core', x:d.x, y:d.y, vx:rand(-30, 30), vy:rand(-30, 30), v:0, core:c, t:0, life:ORE.coreLife, rot:0, claim:null });
-    if (d.tgt) d.tgt.claim = null;
-    d.cargo = 0; d.cores = []; d.load = []; d.tgt = null; d.state = 'down'; d.downT = 4;
-    sprite(d.x, d.y, 26, [255,140,90], .9);
-    for (let i = 0; i < 8; i++){ const a = rand(0, TAU), v = rand(60, 160); emit({ x:d.x, y:d.y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, drag:2, life:.4, s0:2.5, s1:1, pal:[[255,220,180],[255,120,60]] }); }
-    break;
+  // fly toward the goal, steering around any rock in the way (drones never get hit: dodging costs time instead)
+  let dx = gx - d.x, dy = gy - d.y, dd = Math.hypot(dx, dy) || 1; dx /= dd; dy /= dd;
+  let ax = 0, ay = 0;
+  for (const e of enemies){
+    if (e.dead || e.warnT > 0) continue;
+    const ex = d.x - e.x, ey = d.y - e.y, ed = Math.hypot(ex, ey) || 1, R = e.r + 60;
+    if (ed > R) continue;
+    const k = (1 - ed/R)*2.2; ax += ex/ed*k; ay += ey/ed*k;
+    // slide sideways rather than straight back
+    const side = (ex*dy - ey*dx) > 0 ? 1 : -1; ax += -dy*side*k*.8; ay += dx*side*k*.8;
+    if (ed < e.r + 8){ d.x = e.x + ex/ed*(e.r + 8); d.y = e.y + ey/ed*(e.r + 8); }
   }
+  let ux = dx + ax, uy = dy + ay; const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
+  const k = Math.min(1, dt*7);
+  d.vx += (ux*sp - d.vx)*k; d.vy += (uy*sp - d.vy)*k;
+  d.x += d.vx*dt; d.y += d.vy*dt;
 }
+function take(d, s, o){
+  if (o.core) d.cores.push(o.core); else d.cargo += o.v*(1 + (s.yield || 0));
+  if (d.load.length < 5) d.load.push(o.core ? 'core' : o.tier);
+}
+// plasma pulses stun drones close by
+export function stunDrones(x, y, r, t){ for (const d of miners) if (d.state !== 'home' && Math.hypot(d.x - x, d.y - y) < r) d.stunT = t; }
 
 export function updMining(dt){
   syncDrones();
@@ -161,41 +187,69 @@ export function drawOres(){
 }
 export function drawMiners(){
   for (const d of miners){
-    if (d.state === 'home' || d.state === 'down') continue;
-    const col = d.owner ? d.owner.T.col : [200,215,235], a = Math.atan2(d.vy, d.vx);
-    drawWorker(d.x, d.y, a, col, d.load, d.owner ? 2.1 : 1.8, d.state === 'go' && d.tgt && Math.hypot(d.tgt.x - d.x, d.tgt.y - d.y) < 40);
+    if (d.state === 'home') continue;
+    const col = d.owner ? d.owner.T.col : [200,215,235], a = Math.atan2(d.vy, d.vx) || -Math.PI/2;
+    const st = d.owner ? { tier:tierOf(d.owner), evo:d.owner.evo } : { tier:1 };
+    // tractor beams to the ore being reeled in
+    if (d.beams && d.beams.length){ ctx.globalCompositeOperation = 'lighter'; for (const o of d.beams) neonPath(() => { ctx.moveTo(d.x, d.y); ctx.lineTo(o.x, o.y); }, col, 1.2, .6); }
+    if (d.stunT > 0 && Math.random() < .5) sprite(d.x + rand(-6, 6), d.y + rand(-6, 6), 6, [210,160,255], .8);
+    drawWorker(d.x, d.y, a, col, d.load, d.owner ? 2.1 : 1.8, d.state === 'go' && d.tgt && Math.hypot(d.tgt.x - d.x, d.tgt.y - d.y) < 40, st);
   }
 }
-// a little work drone, top-down, nose along +x: thruster, cargo bin (with what it carries), cab, two claws
+// a work drone, top-down, nose along +x. It grows with its miner: MK I a small worker, MK II gets lights and a
+// second pair of claws, MK III a bigger frame with twin engines; the evolution decides the final shape
+// (hauler: wide with a big hold, runner: slim with long engines, tractor: a beam dish instead of claws)
 const KCOL = k => k === 'core' ? ORE.core.col : ORE.tiers[(k || 1) - 1].col;
 function rrect(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
-function drawWorker(x, y, a, col, load, s, grab){
-  ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.scale(s, s);
+function drawWorker(x, y, a, col, load, s, grab, st = { tier:1 }){
+  const evo = st.evo, tier = st.tier || 1;
+  const K = evo === 'hauler' ? 1.3 : evo === 'runner' ? .95 : tier === 3 ? 1.22 : tier === 2 ? 1.1 : 1;
+  // body box per shape: x0, half-height, length
+  const shape = evo === 'hauler' ? { x0:-9, hh:6.4, w:15 } : evo === 'runner' ? { x0:-7, hh:3.2, w:12 } : { x0:-7, hh:4.6, w:11.5 };
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.scale(s*K, s*K);
+  // engines
   ctx.globalCompositeOperation = 'lighter';
-  sprite(-9.5, 0, 4.5 + Math.random()*1.5, [255,170,80], .85);
+  const eng = evo === 'runner' ? [[-12, 0, 6]] : (tier >= 3 || evo) ? [[shape.x0 - 2.5, -shape.hh*.55, 4.2], [shape.x0 - 2.5, shape.hh*.55, 4.2]] : [[-9.5, 0, 4.5]];
+  for (const [ex, ey, r] of eng) sprite(ex, ey, r + Math.random()*1.5, evo === 'runner' ? [120,220,255] : [255,170,80], .85);
+  if (evo === 'runner') sprite(-17, 0, 5, [90,170,255], .4);
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-  // claws: open while flying, closing on the ore
-  const o = grab ? 1.2 : 2.4;
-  ctx.strokeStyle = '#9aa6bd'; ctx.lineWidth = 1.3; ctx.lineCap = 'round'; ctx.beginPath();
-  for (const k of [-1, 1]){ ctx.moveTo(4, k*3); ctx.lineTo(8.5, k*(2 + o)); ctx.lineTo(11.5, k*(o - .4)); }
-  ctx.stroke();
-  // body and treads
-  ctx.fillStyle = '#1a202c'; ctx.fillRect(-7.5, -6, 12, 1.6); ctx.fillRect(-7.5, 4.4, 12, 1.6);
-  rrect(-7, -4.6, 11.5, 9.2, 2.2); ctx.fillStyle = '#323c50'; ctx.fill(); ctx.strokeStyle = '#090c12'; ctx.lineWidth = .8; ctx.stroke();
-  // cargo bin with whatever it carries
-  rrect(-6.2, -3.4, 5.6, 6.8, 1); ctx.fillStyle = '#0b0f17'; ctx.fill();
-  load.forEach((k, i) => { ctx.fillStyle = rgb(KCOL(k)); const px = -5 + (i % 3)*1.7, py = -2.2 + ((i/3)|0)*2.4 + (i % 2)*.6; ctx.fillRect(px, py, 1.5, 1.5); });
+  // claws (or the tractor's dish): open while flying, closing on the ore; MK II and up has two pairs
+  const fx = shape.x0 + shape.w;
+  if (evo === 'tractor'){
+    ctx.strokeStyle = '#9aa6bd'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(fx + 5, 0, 5, Math.PI*.6, Math.PI*1.4); ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter'; sprite(fx + 2, 0, 3.5, col, .9); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  } else {
+    const o = grab ? 1.2 : 2.4, pairs = tier >= 2 || evo ? [1, .55] : [1];
+    ctx.strokeStyle = '#9aa6bd'; ctx.lineCap = 'round';
+    for (const p of pairs){ ctx.lineWidth = 1.3*p; ctx.beginPath();
+      for (const k of [-1, 1]){ ctx.moveTo(fx - .5, k*3*p); ctx.lineTo(fx + 4*p + (1 - p)*2, k*(2 + o)*p); ctx.lineTo(fx + 7*p + (1 - p)*3, k*(o - .4)*p); }
+      ctx.stroke(); }
+  }
+  // fins on the runner, treads on the rest
+  if (evo === 'runner'){ ctx.fillStyle = '#3a4660'; for (const k of [-1, 1]){ ctx.beginPath(); ctx.moveTo(-6, k*3); ctx.lineTo(-10, k*7); ctx.lineTo(-2, k*3); ctx.closePath(); ctx.fill(); } }
+  else { ctx.fillStyle = '#1a202c'; ctx.fillRect(shape.x0 - .5, -shape.hh - 1.4, shape.w + .5, 1.6); ctx.fillRect(shape.x0 - .5, shape.hh - .2, shape.w + .5, 1.6); }
+  // body
+  rrect(shape.x0, -shape.hh, shape.w, shape.hh*2, 2.2); ctx.fillStyle = tier >= 3 || evo ? '#3a465c' : '#323c50'; ctx.fill(); ctx.strokeStyle = '#090c12'; ctx.lineWidth = .8; ctx.stroke();
+  // cargo bin with whatever it carries (the hauler's is big)
+  const bw = evo === 'hauler' ? 8.5 : evo === 'runner' ? 3.6 : 5.6, bh = shape.hh*2 - 2.4;
+  rrect(shape.x0 + .8, -bh/2, bw, bh, 1); ctx.fillStyle = '#0b0f17'; ctx.fill();
+  const cols = evo === 'hauler' ? 5 : evo === 'runner' ? 2 : 3;
+  load.forEach((k, i) => { ctx.fillStyle = rgb(KCOL(k)); const px = shape.x0 + 2 + (i % cols)*1.7, py = -bh/2 + 1.2 + ((i/cols)|0)*2.4 + (i % 2)*.6; ctx.fillRect(px, py, 1.5, 1.5); });
   // hazard stripes and the cab window
-  ctx.fillStyle = '#ffc94a'; ctx.fillRect(.2, -4.6, .9, 9.2); ctx.fillRect(1.8, -4.6, .5, 9.2);
-  rrect(2.6, -2.4, 1.8, 4.8, .8); ctx.fillStyle = rgb(col); ctx.fill();
+  const sx = shape.x0 + bw + 1.6;
+  ctx.fillStyle = '#ffc94a'; ctx.fillRect(sx, -shape.hh, .9, shape.hh*2); if (evo !== 'runner') ctx.fillRect(sx + 1.6, -shape.hh, .5, shape.hh*2);
+  rrect(fx - 2.6, -Math.min(2.4, shape.hh - .8), 1.8, Math.min(4.8, shape.hh*2 - 1.6), .8); ctx.fillStyle = rgb(col); ctx.fill();
   ctx.restore();
   ctx.globalCompositeOperation = 'lighter';
-  const hx = x + Math.cos(a)*12*s, hy = y + Math.sin(a)*12*s;
-  sprite(hx, hy, 6, [255,250,220], .5); if (load.length) sprite(x - Math.cos(a)*3*s, y - Math.sin(a)*3*s, 5, KCOL(load[0]), .5);
+  const c = Math.cos(a), si = Math.sin(a), L = s*K;
+  sprite(x + c*(fx + 3)*L, y + si*(fx + 3)*L, 6, [255,250,220], .5);
+  // MK II+: running lights on the flanks
+  if (tier >= 2 || evo){ const blink = .5 + .5*Math.sin(time*6 + x*.01); for (const k of [-1, 1]) sprite(x - si*k*(shape.hh + 1)*L, y + c*k*(shape.hh + 1)*L, 3, k > 0 ? [120,255,160] : [255,90,80], .5 + .4*blink); }
+  if (load.length) sprite(x - c*3*L, y - si*3*L, 5, KCOL(load[0]), .5);
 }
-export function drawWorkerIcon(canvas, col, load = []){
+export function drawWorkerIcon(canvas, col, load = [], st){
   const g = canvas.getContext('2d'), keep = ctx; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height);
-  setCtx(g); drawWorker(canvas.width/2, canvas.height/2, -Math.PI/2, col, load, canvas.width/34, false); setCtx(keep);
+  setCtx(g); drawWorker(canvas.width/2, canvas.height/2, -Math.PI/2, col, load, canvas.width/(st && (st.evo || st.tier > 1) ? 44 : 34), false, st); setCtx(keep);
 }
 export function drawOreIcon(canvas, kind){
   const g = canvas.getContext('2d'), keep = ctx, c = canvas.width/2; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height);

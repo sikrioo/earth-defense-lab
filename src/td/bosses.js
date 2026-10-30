@@ -11,6 +11,7 @@ import { mixc, neonCircle, neonPath, rgb, ringFx, explode } from './fx.js';
 import { sfx } from './sfx.js';
 import { spawnRock } from './enemies.js';
 import { turrets } from './turrets.js';
+import { stunDrones } from './mining.js';
 
 const live = e => e && !e.dead;
 
@@ -153,6 +154,7 @@ export function onKill(e){
     // electromagnetic pulse: turrets close by stop for a moment
     ringFx(e.x, e.y, 10, T.emp, .45, [210,150,255], 3); sprite(e.x, e.y, T.emp*.7, [200,140,255], .35); sfx.storm();
     for (const t of turrets) if (Math.hypot(t.px - e.x, t.py - e.y) < T.emp) t.emp = 1.5;
+    stunDrones(e.x, e.y, T.emp, 1.5);
   }
   if (T.node && live(e.host) && !nodesOf(e.host).some(n => n !== e)){
     const h = e.host; h.exposed = 7;

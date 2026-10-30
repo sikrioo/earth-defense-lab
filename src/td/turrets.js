@@ -444,7 +444,7 @@ const rr = (x, y, w, h, r) => { ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w,
 const accent = (build, col, w = 1.2, a = 1) => { ctx.globalCompositeOperation = 'lighter'; neonPath(build, col, w, a); };
 
 // pedestal, drawn with its foot at (0,0)
-function paintBase(type, col){
+function paintBase(type, col, look){
   if (type === 'tesla'){
     metal(() => { ctx.moveTo(-15, 8); ctx.lineTo(15, 8); ctx.lineTo(7, -30); ctx.lineTo(-7, -30); ctx.closePath(); }, -15, -30, 15, 8);
     for (let k = 0; k < 4; k++){ const y = -4 - k*7.5, w = 15 - k*2.4; metal(() => rr(-w, y - 2.5, w*2, 5, 2.5), -w, y - 3, w, y + 3); accent(() => { ctx.moveTo(-w + 2, y); ctx.lineTo(w - 2, y); }, col, 1, .8); }
@@ -457,17 +457,7 @@ function paintBase(type, col){
     metal(() => rr(-4, -24, 8, 6, 2), -4, -24, 4, -18);
     return;
   }
-  if (type === 'miner'){
-    // a squat refinery with a crane arm and a docking cradle for the drones
-    metal(() => { ctx.moveTo(-18, 8); ctx.lineTo(18, 8); ctx.lineTo(14, -12); ctx.lineTo(-14, -12); ctx.closePath(); }, -18, -12, 18, 8);
-    metal(() => rr(-12, -20, 14, 9, 2), -12, -20, 2, -11);
-    metal(() => { ctx.moveTo(4, -12); ctx.lineTo(7, -12); ctx.lineTo(14, -30); ctx.lineTo(11, -31); ctx.closePath(); }, 4, -31, 14, -12);
-    metal(() => rr(8, -34, 9, 5, 2), 8, -34, 17, -29);
-    accent(() => { ctx.moveTo(-10, -2); ctx.lineTo(10, -2); }, col, 1.2, .9);
-    accent(() => { ctx.moveTo(-9, -15.5); ctx.lineTo(-1, -15.5); }, col, 1, .8);
-    accent(() => { ctx.arc(12.5, -38, 4, Math.PI*.1, Math.PI*.9, true); }, col, 1, .7);
-    return;
-  }
+  if (type === 'miner'){ paintMiner(col, look || {}); return; }
   if (type === 'carrier'){
     // a flat-topped hangar with a launch deck pointing out into space
     metal(() => { ctx.moveTo(-19, 8); ctx.lineTo(19, 8); ctx.lineTo(14, -26); ctx.lineTo(-10, -26); ctx.lineTo(-14, -18); ctx.closePath(); }, -19, -26, 19, 8);
@@ -536,12 +526,43 @@ function paintHead(type, col){
   }
 }
 const sprites = new Map();
-function cached(kind, type){
-  const key = kind + type + RS; let s = sprites.get(key); if (s) return s;
+function cached(kind, type, look){
+  const sig = look ? JSON.stringify(look) : '', key = kind + type + RS + sig; let s = sprites.get(key); if (s) return s;
   const h = 48*TS, c = document.createElement('canvas'); c.width = c.height = Math.ceil(h*2*RS);
   const g = c.getContext('2d'), keep = ctx; g.setTransform(RS*TS, 0, 0, RS*TS, h*RS, h*RS);
-  setCtx(g); (kind === 'base' ? paintBase : paintHead)(type, TURRET[type].col); setCtx(keep);
+  setCtx(g); (kind === 'base' ? paintBase : paintHead)(type, TURRET[type].col, look); setCtx(keep);
   s = { c, h }; sprites.set(key, s); return s;
+}
+// the miner is drawn from its state: tier, evolution, and how far each upgrade went
+const minerLook = t => ({ tier:tierOf(t), evo:t.evo || '', cap:t.lv.mn_cap || 0, fin:t.lv.mn_speed || 0, arm:t.lv.mn_scoop || 0, yld:t.lv.mn_yield || 0, docks:Math.min(8, Math.round(t.s.drones)), tractor:t.lv.mn_tractor || 0 });
+function paintMiner(col, L){
+  const tier = L.tier || 1, W = 18 + (tier - 1)*3;
+  // MK III: a ring deck under everything
+  if (tier >= 3){ metal(() => ctx.ellipse(0, -2, W + 8, 12, 0, 0, TAU), -W - 8, -14, W + 8, 10); accent(() => ctx.ellipse(0, -2, W + 6, 10, 0, Math.PI*.05, Math.PI*.95), col, 1, .6); }
+  // engine fins (추진기): one pair per two levels
+  for (let i = 0; i < Math.ceil((L.fin || 0)/2); i++){ const y = 4 - i*6; for (const k of [-1, 1]) metal(() => { ctx.moveTo(k*(W - 2), y); ctx.lineTo(k*(W + 6), y + 3); ctx.lineTo(k*(W + 5), y - 3); ctx.lineTo(k*(W - 2), y - 4); ctx.closePath(); }, -W - 6, y - 4, W + 6, y + 3); }
+  // the platform
+  metal(() => { ctx.moveTo(-W, 8); ctx.lineTo(W, 8); ctx.lineTo(W - 4, -12); ctx.lineTo(-W + 4, -12); ctx.closePath(); }, -W, -12, W, 8);
+  // MK II and up: a hangar arch on the left
+  if (tier >= 2){ metal(() => { ctx.moveTo(-W + 3, -12); ctx.lineTo(-W + 3, -20); ctx.arc(-W + 10, -20, 7, Math.PI, 0); ctx.lineTo(-W + 17, -12); ctx.closePath(); }, -W, -27, -W + 17, -12);
+    ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = '#05070b'; ctx.beginPath(); ctx.moveTo(-W + 6, -12); ctx.lineTo(-W + 6, -19); ctx.arc(-W + 10, -19, 4, Math.PI, 0); ctx.lineTo(-W + 14, -12); ctx.closePath(); ctx.fill();
+    accent(() => { ctx.arc(-W + 10, -20, 7, Math.PI*1.05, Math.PI*1.95); }, col, 1, .8); }
+  else { metal(() => rr(-12, -20, 14, 9, 2), -12, -20, 2, -11); accent(() => { ctx.moveTo(-9, -15.5); ctx.lineTo(-1, -15.5); }, col, 1, .8); }
+  // cargo bins (적재함): a row of crates on the deck
+  for (let i = 0; i < (L.cap || 0); i++){ const x = -W + 4 + i*5.6; metal(() => rr(x, -1, 4.6, 5, 1), x, -1, x + 4.6, 4); accent(() => { ctx.moveTo(x + 1, 1.5); ctx.lineTo(x + 3.6, 1.5); }, col, .8, .6); }
+  // chimney with a glow (정제기)
+  if (L.yld){ const hgt = 6 + L.yld*2.4; metal(() => rr(-1, -12 - hgt, 4, hgt, 1), -1, -12 - hgt, 3, -12); accent(() => { ctx.moveTo(-.5, -12 - hgt + 1); ctx.lineTo(2.5, -12 - hgt + 1); }, [255,170,80], 1.2, .9); }
+  // the crane arm (광역 집게), longer and thicker with each level; the tractor beam swaps the claw for a dish
+  const arm = (L.arm || 0) + (L.tractor ? 2 : 0), tipX = 11 + arm*1.6, tipY = -30 - arm*3.2, w = 1.5 + arm*.25;
+  metal(() => { ctx.moveTo(4, -12); ctx.lineTo(4 + w*2, -12); ctx.lineTo(tipX + w, tipY); ctx.lineTo(tipX - w, tipY - 1); ctx.closePath(); }, 4, tipY - 1, tipX + w, -12);
+  if (L.tractor){ metal(() => { ctx.arc(tipX, tipY - 4, 6, Math.PI*1.1, Math.PI*1.9); ctx.arc(tipX, tipY - 1, 4, Math.PI*1.9, Math.PI*1.1, true); ctx.closePath(); }, tipX - 6, tipY - 10, tipX + 6, tipY); accent(() => ctx.arc(tipX, tipY - 4, 4.5, Math.PI*1.15, Math.PI*1.85), col, 1, .9); }
+  else { metal(() => rr(tipX - 4, tipY - 4, 9, 5, 2), tipX - 4, tipY - 4, tipX + 5, tipY + 1); accent(() => { ctx.arc(tipX + .5, tipY - 8, 4, Math.PI*.1, Math.PI*.9, true); }, col, 1, .7); }
+  // evolution pieces
+  if (L.evo === 'hauler'){ metal(() => rr(-W - 2, -34, 16, 14, 2), -W - 2, -34, -W + 14, -20); for (let i = 0; i < 3; i++) accent(() => { ctx.moveTo(-W + 1, -31 + i*4); ctx.lineTo(-W + 11, -31 + i*4); }, [255,201,74], 1, .8); }
+  if (L.evo === 'runner'){ for (const x of [-3, 3]) metal(() => rr(x - 1, -40, 2, 28, 1), x - 1, -40, x + 1, -12); accent(() => { for (let y = -38; y < -14; y += 5){ ctx.moveTo(-3, y); ctx.lineTo(3, y); } }, [120,220,255], 1, .8); }
+  if (L.evo === 'tractor'){ metal(() => { ctx.arc(-6, -26, 11, Math.PI*1.05, Math.PI*1.95); ctx.arc(-6, -20, 8, Math.PI*1.95, Math.PI*1.05, true); ctx.closePath(); }, -17, -37, 5, -20); accent(() => ctx.arc(-6, -26, 9, Math.PI*1.1, Math.PI*1.9), col, 1.3, .9); metal(() => rr(-7, -36, 2, 10, 1), -7, -36, -5, -26); }
+  // docking lamps: one per drone
+  const n = L.docks || 2; accent(() => { for (let i = 0; i < n; i++){ const x = -W + 5 + i*((2*W - 10)/Math.max(1, n - 1 || 1)); ctx.moveTo(x - 1, 6.5); ctx.lineTo(x + 1, 6.5); } }, col, 1.4, .95);
 }
 const blitAt = (s, x, y, ang = 0, k = 1) => { ctx.save(); ctx.translate(x, y); if (ang) ctx.rotate(ang); if (k !== 1) ctx.scale(k, k); ctx.drawImage(s.c, -s.h, -s.h, s.h*2, s.h*2); ctx.restore(); };
 
@@ -552,7 +573,7 @@ export function drawTurrets(){
     // higher tiers stand a little bigger; Mk III gets a tier halo, an evolved gun a brighter one in its colour
     const tier = tierOf(t), sc = [1, 1.08, 1.16][tier - 1];
     if (tier === 3){ ctx.globalCompositeOperation = 'lighter'; sprite(t.px, t.py, 40 + Math.sin(time*3)*4, t.evo ? t.T.col : [255,255,255], t.evo ? .35 : .15); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
-    blitAt(cached('base', t.type), t.x, t.y, t.a + Math.PI/2, sc);
+    blitAt(t.type === 'miner' ? cached('base', 'miner', minerLook(t)) : cached('base', t.type), t.x, t.y, t.a + Math.PI/2, sc);
     if (BARREL[t.type]) blitAt(cached('head', t.type), px - Math.cos(t.ang)*k*7, py - Math.sin(t.ang)*k*7, rot, sc);
     ctx.globalCompositeOperation = 'lighter';
     // live glows: muzzle flash, charged lens, tesla orb, hangar light
@@ -629,12 +650,12 @@ function drawDrone(d, R){
   if (p > .55) sprite(d.x, d.y, R*.8*p, [255,255,255], p*.8);
 }
 // card art: the whole gun, pointing up
-export function drawTurretIcon(canvas, type){
+export function drawTurretIcon(canvas, type, t){
   const g = canvas.getContext('2d'), s = canvas.width/56;
   g.setTransform(s*.82, 0, 0, s*.82, s*28, s*50); g.clearRect(-40, -70, 80, 90);
   const keep = ctx, keepM = METAL; setCtx(g); METAL = METAL_ICON;
   g.globalCompositeOperation = 'lighter'; sprite(0, -20, 34, TURRET[type].col, .22);
-  paintBase(type, TURRET[type].col);
+  paintBase(type, TURRET[type].col, t && type === 'miner' ? minerLook(t) : undefined);
   if (BARREL[type]){ g.save(); g.translate(0, -13); paintHead(type, TURRET[type].col); g.restore(); }
   if (type === 'tesla'){ g.globalCompositeOperation = 'lighter'; sprite(0, -34, 9, [226,220,255], .9); }
   setCtx(keep); METAL = keepM;
