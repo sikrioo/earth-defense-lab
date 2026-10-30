@@ -2,7 +2,9 @@
 import { RS, TAU, ctx, rand, setCtx, time } from '../core/canvas.js';
 import { emit, sprite, streak } from '../core/particles.js';
 import { boltWithForks } from '../core/lightning.js';
-import { CORES, CORE_KEYS, EVO, TIERS, TURRET, UPG, slotsFor, tierFor } from './data.js';
+import { AFFIX, CORE_KEYS, EVO, TIERS, TURRET, UPG, slotsFor, tierFor } from './data.js';
+import { coreCol, linksOf } from './cores.js';
+import { SRC, setSrc } from './src.js';
 import { G, enemies, fx, shots } from './state.js';
 import { sfx } from './sfx.js';
 import { addShake } from '../core/lights.js';
@@ -27,10 +29,13 @@ export function recompute(t){
   const b = t.T.base, s = { ...b };
   for (const u of UPG[t.type]) for (let i = 0; i < (t.lv[u.id] || 0); i++) u.apply(s, b);
   if (t.evo){ const e = EVO[t.type].find(x => x.id === t.evo); if (e) e.apply(s, b); }
-  for (const c of t.cores) for (const [g, f] of Object.entries(CORES[c].ops)){
-    for (const k of CORE_KEYS[g].up) if (k in s) s[k] *= f;
-    for (const k of CORE_KEYS[g].down) if (k in s) s[k] /= f;
+  // cores: stat affixes scale the gun; the rest become per-hit modifiers, and the elements switch on links
+  const mods = {};
+  for (const c of t.cores) for (const a of c.affixes){
+    if (CORE_KEYS[a.k]){ const f = 1 + a.v/100; for (const k of CORE_KEYS[a.k].up) if (k in s) s[k] *= f; for (const k of CORE_KEYS[a.k].down) if (k in s) s[k] /= f; }
+    else mods[a.k] = (mods[a.k] || 0) + a.v;
   }
+  t.mods = mods; t.links = new Set(linksOf(t.cores).map(L => L.id));
   // intervals and the like never drop below a quarter of base
   for (const k of ['every', 'charge', 'recharge', 'cool', 'rearm', 'heatPer', 'spread']) if (k in s) s[k] = Math.max(b[k]*.25, s[k]);
   t.s = s;
@@ -54,10 +59,9 @@ export const evoOf = t => t.evo ? EVO[t.type].find(x => x.id === t.evo) : null;
 export const levelOf = t => Object.values(t.lv).reduce((a, b) => a + b, 0);
 // energy cores: each turret has 1–3 slots (by how upgraded it is); a core scales its stats for good
 export const slotsOf = t => slotsFor(levelOf(t));
-export const coreUseful = (t, type) => Object.keys(CORES[type].ops).some(g => [...CORE_KEYS[g].up, ...CORE_KEYS[g].down].some(k => k in t.s && t.s[k] > 0));
-export function installCore(t, type){
+export function installCore(t, core){
   if (t.cores.length >= slotsOf(t)) return false;
-  t.cores.push(type); recompute(t); ringFx(t.x, t.y, 6, 70, .6, CORES[type].col, 4);
+  t.cores.push(core); recompute(t); ringFx(t.x, t.y, 6, 70, .6, coreCol(core), 4);
   return true;
 }
 // keep turret positions in step with the view (resizes move the platform)
@@ -85,13 +89,19 @@ const muzzle = (t, len = BARREL[t.type] || 18) => ({ x:t.px + Math.cos(t.ang)*le
 
 export function updTurrets(dt){
   for (const t of turrets){
+    setSrc(t); const n0 = shots.length; turretStep(t, dt); for (let i = n0; i < shots.length; i++) if (!shots[i].src) shots[i].src = t;
+  }
+  setSrc(null);
+}
+function turretStep(t, dt){
+  {
     const s = t.s; t.cd -= dt; t.kick = Math.max(0, (t.kick || 0) - dt*7);
-    if (t.emp > 0){ t.emp -= dt; t.beams = []; t.firing = false; continue; }      // knocked out by a plasma pulse
+    if (t.emp > 0){ t.emp -= dt; t.beams = []; t.firing = false; return; }      // knocked out by a plasma pulse
     if (t.type === 'gatling'){
       // overheat: firing builds heat; at 100 the barrels must cool before firing again
       t.heat = t.heat || 0;
-      if (t.over > 0){ t.over -= dt; if (t.over <= 0) t.heat = 0; if (Math.random() < dt*25){ const m = muzzle(t); emit({ x:m.x, y:m.y, vx:rand(-15, 15), vy:rand(-50, -25), drag:1, life:.7, s0:3, s1:9, a:.3, pal:[[200,210,220],[120,130,150]] }); } continue; }
-      const e = target(t, s.range); if (!e){ t.heat = Math.max(0, t.heat - 30*dt); continue; } aimAt(t, e, dt);
+      if (t.over > 0){ t.over -= dt; if (t.over <= 0) t.heat = 0; if (Math.random() < dt*25){ const m = muzzle(t); emit({ x:m.x, y:m.y, vx:rand(-15, 15), vy:rand(-50, -25), drag:1, life:.7, s0:3, s1:9, a:.3, pal:[[200,210,220],[120,130,150]] }); } return; }
+      const e = target(t, s.range); if (!e){ t.heat = Math.max(0, t.heat - 30*dt); return; } aimAt(t, e, dt);
       if (t.cd <= 0){
         t.cd = 1/s.rate; t.kick = .7; sfx.gun();
         t.heat += s.heatPer; if (t.heat >= 100){ t.heat = 100; t.over = s.cool; }
@@ -108,10 +118,10 @@ export function updTurrets(dt){
     } else if (t.type === 'laser'){
       // battery: firing drains it; empty means a full recharge before the next beam
       if (t.bat === undefined) t.bat = s.cap;
-      if (t.charging){ t.beams = []; t.bat += s.cap/s.recharge*dt; if (t.bat >= s.cap){ t.bat = s.cap; t.charging = false; } continue; }
+      if (t.charging){ t.beams = []; t.bat += s.cap/s.recharge*dt; if (t.bat >= s.cap){ t.bat = s.cap; t.charging = false; } return; }
       const skip = new Set(); t.beams = [];
       for (let b = 0; b < s.beams; b++){ const e = target(t, s.range, skip); if (!e) break; skip.add(e); t.beams.push(e); }
-      if (!t.beams.length){ t.ramp = 0; t.rampOn = null; t.bat = Math.min(s.cap, t.bat + s.cap/s.recharge*dt); continue; }
+      if (!t.beams.length){ t.ramp = 0; t.rampOn = null; t.bat = Math.min(s.cap, t.bat + s.cap/s.recharge*dt); return; }
       aimAt(t, t.beams[0], dt);
       t.bat -= dt*(1 + (t.beams.length - 1)*(s.prism ? .08 : .5));
       if (t.bat <= 0){ t.bat = 0; t.charging = true; t.ramp = 0; t.rampOn = null; }
@@ -120,7 +130,7 @@ export function updTurrets(dt){
       t.beams.forEach((e, i) => hurt(e, s.dps*(i ? 1 : t.mult)*dt, { chillBonus:s.melt })); sfx.laser();
       if (Math.random() < dt*20){ const e = t.beams[0]; hitSpark(e.x + rand(-4, 4), e.y + rand(-4, 4), t.T.col); }
     } else if (t.type === 'missile'){
-      const e = target(t, s.range, null, s.minRange); if (!e) continue; aimAt(t, e, dt);
+      const e = target(t, s.range, null, s.minRange); if (!e) return; aimAt(t, e, dt);
       if (t.cd <= 0){
         t.cd = s.every; t.kick = 1; sfx.missile(); if (s.count >= 4) addShake(1.2);
         for (let i = 0; i < s.count; i++){
@@ -129,21 +139,21 @@ export function updTurrets(dt){
         }
       }
     } else if (t.type === 'cryo'){
-      const e = target(t, s.range); if (!e) continue; aimAt(t, e, dt);
+      const e = target(t, s.range); if (!e) return; aimAt(t, e, dt);
       if (t.cd <= 0){
         t.cd = s.every; t.kick = 1; sfx.frost(); const m = muzzle(t);
         const lead = .45, tx = e.x + (e.vx || 0)*lead, ty = e.y + (e.vy || 0)*lead;
         shots.push({ k:'frost', x:m.x, y:m.y, sx:m.x, sy:m.y, tx, ty, t:0, dur:lead, s:{ ...s }, col:t.T.col });
       }
     } else if (t.type === 'tesla'){
-      const e = target(t, s.range); if (!e || t.cd > 0) continue;
+      const e = target(t, s.range); if (!e || t.cd > 0) return;
       t.cd = s.every; sfx.zap();
       const o = along(t, 34*TS), pts = [[o.x, o.y]], seen = new Set(); let cur = e;
       for (let j = 0; j <= s.jumps && cur; j++){
         seen.add(cur); pts.push([cur.x, cur.y]);
         hurt(cur, s.dmg*(s.conduct ? 1 : Math.pow(s.falloff, j)), { chillBonus:isChilled(cur) ? s.conduct : 0 });
         if (s.stun && alive(cur)) cur.stunT = Math.max(cur.stunT, s.stun);
-        let nx = null, nd = s.hop; for (const o of enemies){ if (!targetable(o) || seen.has(o)) continue; const d = Math.hypot(o.x - cur.x, o.y - cur.y); if (d < nd){ nd = d; nx = o; } }
+        let nx = null, nd = s.hop; for (const o of enemies){ if (!targetable(o) || seen.has(o)) return; const d = Math.hypot(o.x - cur.x, o.y - cur.y); if (d < nd){ nd = d; nx = o; } }
         cur = nx;
       }
       let life = .2;
@@ -224,7 +234,7 @@ function updFlak(t, s, dt){
 function flakBurst(x, y, ang, n, s, col){
   for (let i = 0; i < n; i++){
     const a = ang + (i/(n - 1 || 1) - .5)*s.spread + rand(-.05, .05), v = rand(620, 760);
-    shots.push({ k:'bullet', x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, dmg:s.dmg, ap:s.ap, pierce:0, hit:new Set(), life:.3, col, frag:true });
+    shots.push({ k:'bullet', x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, dmg:s.dmg, ap:s.ap, pierce:0, hit:new Set(), life:.3, col, frag:true, src:SRC });
   }
   sprite(x, y, 30, [255,255,230], .9); sprite(x, y, 60, col, .45); sfx.flak();
   ringFx(x, y, 4, 40, .25, col, 2);
@@ -295,7 +305,7 @@ function updFlame(t, s, dt){
 export function updShots(dt){
   const wells = collectWells();
   for (let i = shots.length - 1; i >= 0; i--){
-    const p = shots[i]; let keep = true;
+    const p = shots[i]; let keep = true; setSrc(p.src || null);
     if (wells && (p.k === 'bullet' || p.k === 'flak' || p.k === 'missile') && !(p.delay > 0) && !bendShot(p, dt)){ shots.splice(i, 1); continue; }
     if (p.k === 'bullet'){
       for (let sub = 0; sub < 2 && keep; sub++){
@@ -315,7 +325,7 @@ export function updShots(dt){
       p.x += p.vx*dt; p.y += p.vy*dt; p.life -= dt;
       if (Math.random() < dt*45) emit({ x:p.x, y:p.y, vx:-p.vx*.1 + rand(-10, 10), vy:-p.vy*.1 + rand(-10, 10), drag:2, life:.4, s0:2.5, s1:6, a:.35, pal:[[150,160,190],[70,80,110]] });
       const hitE = p.tgt && Math.hypot(p.tgt.x - p.x, p.tgt.y - p.y) < p.tgt.r + 4;
-      if (hitE || p.life <= 0 || !inWorld(p.x, p.y, 60)){ boom(p.x, p.y, p.blast, p.dmg, p.col); if (p.cluster) for (let j = 0; j < p.cluster; j++){ const a = rand(0, TAU), v = rand(90, 170); shots.push({ k:'bomblet', x:p.x, y:p.y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, life:rand(.35, .55), dmg:p.dmg*.35, blast:p.blast*.5, col:p.col }); } keep = false; }
+      if (hitE || p.life <= 0 || !inWorld(p.x, p.y, 60)){ boom(p.x, p.y, p.blast, p.dmg, p.col); if (p.cluster) for (let j = 0; j < p.cluster; j++){ const a = rand(0, TAU), v = rand(90, 170); shots.push({ k:'bomblet', x:p.x, y:p.y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, life:rand(.35, .55), dmg:p.dmg*.35, blast:p.blast*.5, col:p.col, src:p.src }); } keep = false; }
     } else if (p.k === 'bomblet'){
       p.x += p.vx*dt; p.y += p.vy*dt; p.vx *= Math.exp(-2*dt); p.vy *= Math.exp(-2*dt); p.life -= dt;
       if (p.life <= 0){ boom(p.x, p.y, p.blast, p.dmg, p.col); keep = false; }
@@ -348,6 +358,7 @@ export function updShots(dt){
     }
     if (!keep) shots.splice(i, 1);
   }
+  setSrc(null);
   for (const e of enemies){
     if (!e.stDps) continue;
     if (alive(e)){ hurt(e, e.stDps*dt); if (e.stSlow) chill(e, e.stSlow, .3); if (Math.random() < dt*6) hitSpark(e.x, e.y, [200,190,255]); }
@@ -551,7 +562,8 @@ export function drawTurrets(){
     { const n = slotsOf(t), o = along(t, -33 - (bar ? 9 : 0)); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
       for (let i = 0; i < n; i++){ const x = o.x + (i - (n - 1)/2)*9 - 3, y = o.y - 3, c = t.cores[i];
         ctx.fillStyle = '#05070c'; ctx.fillRect(x - 1, y - 1, 8, 8);
-        if (c){ ctx.fillStyle = rgb(CORES[c].col); ctx.fillRect(x, y, 6, 6); } else { ctx.strokeStyle = 'rgba(200,220,255,.45)'; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, 5, 5); } }
+        if (c){ ctx.fillStyle = rgb(coreCol(c)); ctx.fillRect(x, y, 6, 6); } else { ctx.strokeStyle = 'rgba(200,220,255,.45)'; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, 5, 5); } }
+      if (t.links && t.links.size){ ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .6 + .3*Math.sin(time*4); ctx.fillStyle = '#ffd36a'; ctx.fillRect(o.x - (n - 1)*4.5 - 3, o.y + 4, (n - 1)*9 + 6, 1.2); }
       ctx.globalCompositeOperation = 'lighter'; }
     if (t.type === 'laser' && t.beams) t.beams.forEach((e, i) => {
       const m = muzzle(t), w = i ? 1.6 : 1.2 + (t.mult || 1)*1.1;

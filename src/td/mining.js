@@ -4,7 +4,8 @@
    drifts close. Ore burns up after a while. Elites and bosses also drop energy cores (see CORES). */
 import { TAU, ctx, rand, setCtx, time } from '../core/canvas.js';
 import { emit, sprite } from '../core/particles.js';
-import { CORES, ORE } from './data.js';
+import { ORE } from './data.js';
+import { coreCol, dropFor, gradeOf } from './cores.js';
 import { G, enemies } from './state.js';
 import { V, distC } from './view.js';
 import { neonCircle, neonPath, rgb, ringFx } from './fx.js';
@@ -15,20 +16,19 @@ import { pullOre } from './bosses.js';
 export const ores = [];
 export const miners = [];
 const ORE_COL = ORE.kinds.ore.col, CRY_COL = ORE.kinds.crystal.col;
-const COMMON = ['power', 'speed', 'reach'];
 
 export function resetMining(){ ores.length = 0; miners.length = 0; }
 
 // called when a rock breaks
-export function dropLoot(e){
-  const total = e.T.energy*ORE.yieldMul, n = Math.max(1, Math.min(e.T.boss ? 10 : 5, Math.ceil(e.T.energy/2.5)));
+export function dropLoot(e, mul = 1){
+  const total = e.T.energy*ORE.yieldMul*mul, n = Math.max(1, Math.min(e.T.boss ? 10 : 5, Math.ceil(e.T.energy/2.5)));
   // armoured rocks, elites and bosses give half their worth as crystal: fewer, richer pieces only miners can carry
   const rich = e.T.armor || e.T.elite || e.T.boss, nc = rich ? Math.max(1, Math.round(n*.4)) : 0, crys = rich ? total*ORE.kinds.crystal.share : 0;
   const put = (kind, v) => { const a = rand(0, TAU), sp = rand(10, 40) + (e.T.boss ? 60 : 0);
     ores.push({ kind, x:e.x + Math.cos(a)*e.r*.3, y:e.y + Math.sin(a)*e.r*.3, vx:(e.vx || 0)*.2 + Math.cos(a)*sp, vy:(e.vy || 0)*.2 + Math.sin(a)*sp, v, t:0, life:ORE.life*(kind === 'crystal' ? 1.4 : 1), rot:rand(0, TAU), claim:null }); };
   for (let i = 0; i < n; i++) put('ore', (total - crys)/n);
   for (let i = 0; i < nc; i++) put('crystal', crys/nc);
-  const cores = e.T.boss ? ['prime', COMMON[(Math.random()*3)|0]] : e.T.elite ? [COMMON[(Math.random()*3)|0]] : [];
+  const cores = dropFor(e);
   for (const c of cores) ores.push({ kind:'core', x:e.x + rand(-10, 10), y:e.y + rand(-10, 10), vx:rand(-30, 30), vy:rand(-30, 30), v:0, core:c, t:0, life:ORE.coreLife, rot:0, claim:null });
 }
 
@@ -36,7 +36,7 @@ export function dropLoot(e){
 function deposit(x, y, energy, cores){
   if (energy > 0){ G.energy += energy*G.energyMul; sprite(x, y, 14, ORE_COL, .8); sfx.ore(); }
   if (cores.length) sfx.core();
-  for (const c of cores){ G.cores.push(c); G.coreQueue++; ringFx(x, y, 6, 50, .5, CORES[c].col, 3); }
+  for (const c of cores){ G.cores.push(c); G.coreQueue++; ringFx(x, y, 6, 50, .5, coreCol(c), 3); }
 }
 // the view changed: whatever is still floating is swept in
 export function sweepOres(){
@@ -141,10 +141,11 @@ export function drawOres(){
   for (const o of ores){
     const left = o.life - o.t, blink = left < 2.5 ? (Math.sin(time*18) > 0 ? 1 : .35) : 1;
     if (o.core){
-      const c = CORES[o.core].col, r = 8 + Math.sin(time*5)*1;
+      const c = coreCol(o.core), gc = gradeOf(o.core).col, r = 8 + Math.sin(time*5)*1;
       sprite(o.x, o.y, 26, c, .35*blink); neonCircle(o.x, o.y, 15 + (time*20 % 10), c, 1, .4*blink);
       neonPath(() => { for (let k = 0; k < 6; k++){ const a = k/6*TAU + time; k ? ctx.lineTo(o.x + Math.cos(a)*r, o.y + Math.sin(a)*r) : ctx.moveTo(o.x + Math.cos(a)*r, o.y + Math.sin(a)*r); } ctx.closePath(); }, c, 1.4, blink);
       sprite(o.x, o.y, 4, [255,255,255], blink);
+      if (o.core.grade !== 'common') neonCircle(o.x, o.y, 11, gc, 1, .8*blink);
       continue;
     }
     const cry = o.kind === 'crystal', col = cry ? CRY_COL : ORE_COL, r = (cry ? 4 : 2.6) + Math.min(3, o.v*.4), ca = Math.cos(o.rot), sa = Math.sin(o.rot);
@@ -199,10 +200,12 @@ export function drawOreIcon(canvas, kind){
   neonPath(() => { ctx.moveTo(c + r*1.6, c); ctx.lineTo(c, c + r); ctx.lineTo(c - r*1.6, c); ctx.lineTo(c, c - r); ctx.closePath(); }, col, 3, 1);
   setCtx(keep);
 }
-export const coreIcon = (g, type, cx, cy, r) => {
-  const c = CORES[type].col; g.save(); g.globalCompositeOperation = 'lighter';
+export const coreIcon = (g, core, cx, cy, r) => {
+  const c = coreCol(core), gc = gradeOf(core).col; g.save(); g.globalCompositeOperation = 'lighter';
   const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r*1.8); gr.addColorStop(0, rgb(c, .5)); gr.addColorStop(1, rgb(c, 0)); g.fillStyle = gr; g.fillRect(cx - r*2, cy - r*2, r*4, r*4);
-  g.beginPath(); for (let k = 0; k < 6; k++){ const a = k/6*TAU - Math.PI/2; g.lineTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r); } g.closePath();
-  g.strokeStyle = rgb(c, .35); g.lineWidth = r*.4; g.stroke(); g.strokeStyle = `rgb(${c.map(v => Math.min(255, v + 80))})`; g.lineWidth = r*.12; g.stroke();
+  const hex = k => { g.beginPath(); for (let i = 0; i < 6; i++){ const a = i/6*TAU - Math.PI/2; g.lineTo(cx + Math.cos(a)*r*k, cy + Math.sin(a)*r*k); } g.closePath(); };
+  hex(1); g.strokeStyle = rgb(c, .35); g.lineWidth = r*.4; g.stroke(); g.strokeStyle = `rgb(${c.map(v => Math.min(255, v + 80))})`; g.lineWidth = r*.12; g.stroke();
+  // the grade shows as an outer frame (none for common)
+  if (core.grade !== 'common'){ hex(1.32); g.strokeStyle = rgb(gc, .9); g.lineWidth = r*.07; g.stroke(); if (core.grade === 'flawless' || core.grade === 'named'){ hex(1.48); g.strokeStyle = rgb(gc, .5); g.lineWidth = r*.05; g.stroke(); } }
   g.fillStyle = '#fff'; g.beginPath(); g.arc(cx, cy, r*.22, 0, TAU); g.fill(); g.restore();
 };

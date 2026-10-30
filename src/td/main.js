@@ -3,7 +3,8 @@ import './style.css';
 import { RS, cv, ctx, decayShake, rollShake, shX, shY, tickClock } from '../core/canvas.js';
 import { drawParts, parts, setMAXP, updParts } from '../core/particles.js';
 import { resetJag, tickBolts } from '../core/lightning.js';
-import { CORES, FORT, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
+import { FORT, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
+import { coreName, gradeOf, linksOf, namedCore, rollCore } from './cores.js';
 import { G, enemies, fx, shots } from './state.js';
 import { MODES, fitView, modeFor, startCamera, tickCamera, V } from './view.js';
 import { drawRocks, hurt, spawnRock, updRocks } from './enemies.js';
@@ -37,7 +38,7 @@ function setView(mode, animate){
 function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoPicks = !!AUTO, bossTest = !!QS_BOSS){
   enemies.length = 0; fx.length = 0; parts.length = 0; resetTurrets(); resetCards(); resetMining(); resetCoreUi();
   Object.assign(G, { phase:'wave', wave:0, paused:false, picking:false, hp:FORT.hp, hpMax:FORT.hp, regen:0, hitT:0,
-    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, bossTest, god:G.god || false, evoQueue:[], hitStop:0, pickQueue:0, bonusPick:false, cores:[], coreQueue:0, magnet:ORE.magnet });
+    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, swallowed:false, bossTest, god:G.god || false, evoQueue:[], hitStop:0, pickQueue:0, bonusPick:false, cores:[], coreQueue:0, magnet:ORE.magnet });
   G.wave = start; setView(wantView(), false);
   addTurret('gatling');
   hud.over.hidden = true; hud.pausebox.hidden = true;
@@ -132,14 +133,14 @@ function buildList(){
   if (!turrets.length) return '';
   return turrets.map(t => {
     const ups = UPG[t.type].filter(u => t.lv[u.id]).map(u => `${u.ko}${u.max > 1 ? ' ' + t.lv[u.id] : ''}`).join(' · ') || '강화 없음', ev = evoOf(t);
-    const cores = t.cores.length ? `<span>코어 · ${t.cores.map(c => CORES[c].ko).join(' · ')}</span>` : '';
+    const lk = linksOf(t.cores), cores = t.cores.length ? `<span>코어 · ${t.cores.map(c => `${gradeOf(c).ko} ${coreName(c)}`).join(' · ')}${lk.length ? ` · 링크: ${lk.map(L => L.ko).join(', ')}` : ''}</span>` : '';
     return `<li style="--c:rgb(${t.T.col})"><b>${ev ? ev.ko : t.T.ko}</b> <em>MK ${['I', 'II', 'III'][tierOf(t) - 1]} · +${levelOf(t)}</em><span>${ups}</span>${cores}</li>`;
   }).join('');
 }
 function endRun(win){
   const m = Math.floor(G.runTime/60), s = Math.floor(G.runTime % 60);
   hud.over.querySelector('h2').textContent = win ? 'EARTH HOLDS' : 'FORTRESS DOWN';
-  hud.over.querySelector('.osub').textContent = win ? `30웨이브를 모두 막았어요` : `웨이브 ${G.wave}에서 무너졌어요`;
+  hud.over.querySelector('.osub').textContent = win ? `30웨이브를 모두 막았어요` : G.swallowed ? '지구가 블랙홀에 삼켜졌어요' : `웨이브 ${G.wave}에서 무너졌어요`;
   hud.over.querySelector('.ostats').innerHTML = `<span><b>${G.wave}</b>웨이브</span><span><b>${G.kills}</b>처치</span><span><b>${m}:${String(s).padStart(2, '0')}</b>시간</span>`;
   hud.over.querySelector('.obuild').innerHTML = buildList();
   hud.over.classList.toggle('win', win); hud.over.hidden = false;
@@ -208,4 +209,4 @@ fitView();
 newRun(QS_BOSS || START_WAVE);
 requestAnimationFrame(frame);
 // for tests and tinkering in the console
-window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret, newRun, resetTurrets, spawnRock, hurt };
+window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret, newRun, resetTurrets, spawnRock, hurt, rollCore, namedCore };

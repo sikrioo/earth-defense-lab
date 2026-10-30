@@ -4,12 +4,13 @@ import { addShake } from '../core/lights.js';
 import { emit, sprite } from '../core/particles.js';
 import { srng } from '../core/util.js';
 import { ROCK, WAVES } from './data.js';
-import { G, enemies } from './state.js';
+import { G, enemies, fx } from './state.js';
 import { PW, V, angC, distC, inWorld, shieldAt } from './view.js';
-import { bigNumber, burst, explode, mixc, rgb } from './fx.js';
+import { bigNumber, burst, explode, mixc, rgb, ringFx } from './fx.js';
 import { hitFortress } from './fortress.js';
 import { discover } from './codex.js';
 import { dropLoot } from './mining.js';
+import { SRC } from './src.js';
 import { sfx } from './sfx.js';
 import { afterHurt, armorOf, drawCustom, drawCustomIcon, filterHurt, onKill, onSpawn, updSpecial } from './bosses.js';
 
@@ -38,14 +39,23 @@ function aimAt(e, a){
   if (V.mode === 'line'){ a = Math.max(-Math.PI/2 - .36, Math.min(-Math.PI/2 + .36, a)); }
   const p = shieldAt(a); e.tx = p.x; e.ty = p.y; e.aim = a;
 }
+let inProc = false;       // link effects deal damage too; they must not set off more link effects
 export function hurt(e, dmg, opts = {}){
   if (!alive(e)) return 0;
   let d = dmg;
-  if (isChilled(e)) d *= 1 + G.shatter + (opts.chillBonus || 0);
+  const t = inProc ? null : SRC, m = t && t.mods, L = t && t.links;
+  if (isChilled(e)) d *= 1 + G.shatter + (opts.chillBonus || 0) + (m && m.chilled ? m.chilled/100 : 0) + (L && L.has('thermo') ? .35 : 0);
   if ((e.T.organic || e.T.icy) && opts.organicBonus) d *= 1 + opts.organicBonus;
-  const ar = armorOf(e); if (ar && !opts.pierceArmor) d = Math.max(d*.25, d - ar);
+  if (m){
+    if (m.big && (e.T.boss || e.T.elite)) d *= 1 + m.big/100;
+    if (m.organic && e.T.organic) d *= 1 + m.organic/100;
+    if (m.crit && Math.random()*100 < m.crit){ d *= 2.5; opts = { ...opts, crit:true }; }
+  }
+  let ar = armorOf(e); if (L && L.has('ap')) ar = 0; else if (m && m.pierce) ar = Math.max(0, ar - m.pierce);
+  if (ar && !opts.pierceArmor) d = Math.max(d*.25, d - ar);
   d = filterHurt(e, d); if (d <= 0) return 0;
   e.hp -= d; e.flash = .1; afterHurt(e);
+  if (L && L.size && e.hp > 0) linkHit(t, e, d);
   // a shove away from Earth: small rocks get knocked back, big ones barely, bosses and comets not at all
   if (!e.T.boss && !e.T.comet && !e.T.node && d > 0){
     const dc = Math.hypot(e.x - V.cx, e.y - V.cy) || 1, kb = Math.min(40, d*1.3)*14/Math.max(12, e.r);
@@ -69,7 +79,9 @@ export function chill(e, amt, t){
 function kill(e){
   e.dead = true; G.kills++; G.waveDone++;
   onKill(e);
-  dropLoot(e);
+  const kt = inProc ? null : SRC;
+  dropLoot(e, kt && kt.mods && kt.mods.ore ? 1 + kt.mods.ore/100 : 1);
+  if (kt && kt.links && kt.links.has('collapse')) collapse(e);
   explode(e.x, e.y, e.r*1.6, e.T.col);
   // chunks of rock fly off; big kills stop the clock for a beat
   const n = e.T.boss ? 36 : Math.round(3 + e.r/3), hot = mixc(e.T.col, [255,255,255], .35);
@@ -312,3 +324,33 @@ function hpBar(e){
   ctx.fillStyle = rgb(e.T.col); ctx.fillRect(x, y, w*Math.max(0, e.hp/e.max), 2);
 }
 function neonCircleLite(e){ ctx.strokeStyle = rgb(e.T.col, .5); ctx.lineWidth = 1.2; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(e.x, e.y, e.r*1.2, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+
+/* ----- core links that act on a hit (a short per-turret cooldown keeps beams and flames from spamming procs) ----- */
+function linkHit(t, e, d){
+  const L = t.links;
+  if (L.has('incend')){ e.burn = Math.min(4, (e.burn || 0) + .5); e.burnT = 3; e.burnDps = Math.max(e.burnDps || 0, 6); }
+  if (L.has('permafrost')) chill(e, .25, 1);
+  if ((t.procT || 0) > time) return;
+  let fired = false;
+  inProc = true;
+  if (L.has('stasis') && Math.random() < .08){ e.freezeT = Math.max(e.freezeT, e.T.boss ? .3 : 1); sprite(e.x, e.y, e.r*1.6, [170,225,255], .6); fired = true; }
+  if (L.has('overcur') && Math.random() < .14){
+    const near = enemies.filter(o => o !== e && alive(o) && !o.ghost && Math.hypot(o.x - e.x, o.y - e.y) < 130).sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y)).slice(0, 2);
+    for (const o of near){ hurt(o, Math.max(d, 8)*.5); burst(o.x, o.y, [200,170,255], 5, 160, 1.6); }
+    if (near.length){ const pts = [e, ...near]; let l = .18; fx.push({ update(dt){ l -= dt; return l > 0; }, draw(){ for (let i = 1; i < pts.length; i++) boltLine(pts[i - 1], pts[i], l/.18); } }); fired = true; }
+  }
+  if (L.has('plasmaarc') && Math.random() < .5){ hurtArea(e.x, e.y, 45, Math.max(d, 6)*.35); sprite(e.x, e.y, 40, [255,170,120], .6); fired = true; }
+  inProc = false;
+  if (fired) t.procT = time + .12;
+}
+function boltLine(a, b, k){
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1; ctx.strokeStyle = rgb([210,180,255], .9*k); ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); const n = 5; for (let i = 1; i < n; i++){ const t = i/n; ctx.lineTo(a.x + (b.x - a.x)*t + rand(-8, 8), a.y + (b.y - a.y)*t + rand(-8, 8)); } ctx.lineTo(b.x, b.y); ctx.stroke();
+}
+function collapse(e){
+  inProc = true;
+  for (const o of enemies){ if (!alive(o) || o.T.boss) continue; const dx = e.x - o.x, dy = e.y - o.y, dd = Math.hypot(dx, dy); if (dd < 110 && dd > 1){ o.px += dx/dd*140; o.py += dy/dd*140; } }
+  hurtArea(e.x, e.y, 70, e.max*.3);
+  inProc = false;
+  ringFx(e.x, e.y, 70, 6, .35, [110,240,190], 3); sprite(e.x, e.y, 60, [110,240,190], .5);
+}

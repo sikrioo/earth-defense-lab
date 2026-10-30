@@ -1,5 +1,5 @@
 /* ---------- fortress mode: the codex — every gun (strengths, trade-off, stats, cards) and every enemy met so far ---------- */
-import { CORES, EVO, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
+import { AFFIX, ELEMENTS, EVO, GRADES, LINKS, NAMED, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
 import { coreIcon, drawOreIcon, drawWorkerIcon } from './mining.js';
 import { G } from './state.js';
 import { drawTurretIcon } from './turrets.js';
@@ -47,6 +47,8 @@ function firstWave(type){
   const parent = { shard:'splitter', spore:'pod', iceshard:'icecomet', node:'blackhole' }[type];
   return parent ? firstWave(parent) : null;
 }
+// 이/가: pick by whether the last syllable has a final consonant
+const josa = w => { const c = w.charCodeAt(w.length - 1) - 0xac00; return c >= 0 && c < 11172 && c % 28 ? '이' : '가'; };
 const KO_KIND = { ore:'일반', crystal:'결정', core:'코어' };
 function droneRows(s){ return [['드론', `${s.drones}대`], ['속도', Math.round(s.speed)], ['적재량', `광석 ${f1(s.cap)}`], ['집게 반경', Math.round(s.scoop)], ['운반 가능', s.kinds.map(k => KO_KIND[k]).join(' · ')], ...(s.yield ? [['정제', `+${Math.round(s.yield*100)}%`]] : [])]; }
 function section(t){ const h = document.createElement('h3'); h.className = 'cx-sec'; h.textContent = t; list.appendChild(h); }
@@ -89,10 +91,35 @@ function render(){
     const K = ORE.kinds;
     item(K.ore.col, K.ore.ko, 'ORE', '운석이 부서지면 남는 기본 광물.', [['나오는 곳', K.ore.from], ['사라짐', `${ORE.life}초`], ['운반', '모든 드론']], c => drawOreIcon(c, 'ore'));
     item(K.crystal.col, K.crystal.ko, 'CRYSTAL', '단단한 운석 속의 결정. 조각이 크고 값어치가 높아요.', [['나오는 곳', K.crystal.from], ['가치', `그 운석 몫의 ${Math.round(K.crystal.share*100)}%`], ['사라짐', `${Math.round(ORE.life*1.4)}초`], ['운반', '채굴기 드론만']], c => drawOreIcon(c, 'crystal'));
-    section('에너지 코어');
-    for (const k in CORES){
-      const C = CORES[k];
-      item(C.col, C.ko, C.en, C.d, [['나오는 곳', C.boss ? '보스' : '엘리트·보스'], ['운반', '채굴기 드론 · 자석'], ['사라짐', `${ORE.coreLife}초 (천천히 지구 쪽으로 떠내려옴)`]], c => coreIcon(c.getContext('2d'), k, 72, 72, 34));
+  } else if (tab === 'cores'){
+    const note = document.createElement('div'); note.className = 'cx-note';
+    note.innerHTML = `<p><b>에너지 코어</b> 엘리트와 보스가 떨궈요. 코어마다 등급·속성·옵션이 있고, 옵션은 정해진 범위 안에서 무작위로 붙어요.</p>
+      <p><b>슬롯과 링크</b> 슬롯은 MK I 1개, MK II 2개, MK III 3개이고, 한 포탑의 슬롯은 모두 연결돼 있어요. 연결된 코어의 속성 조합이 맞으면 링크 효과가 켜져요. 한 번 끼운 코어는 빼지 못해요.</p>`;
+    list.appendChild(note);
+    section('등급');
+    const gl = document.createElement('dl'); gl.className = 'cx-stats cx-flat';
+    gl.innerHTML = Object.values(GRADES).map(g => `<div><dt style="color:rgb(${g.col})">${g.ko} · ${g.en}</dt><dd>${g === GRADES.named ? '보스 전용 · 고정 옵션 + 1' : `옵션 ${g.n}개${g.lo ? ' · 범위 위쪽 절반' : ''} · ${g.w}%`}</dd></div>`).join('');
+    list.appendChild(gl);
+    section('속성');
+    const el = document.createElement('p'); el.className = 'cx-els';
+    el.innerHTML = Object.values(ELEMENTS).map(E => `<span style="--k:rgb(${E.col})"><i></i>${E.ko} <em>${E.en}</em></span>`).join('');
+    list.appendChild(el);
+    section('옵션 (범위)');
+    const al = document.createElement('dl'); al.className = 'cx-stats cx-flat';
+    al.innerHTML = Object.values(AFFIX).map(A => `<div><dt>${A.ko}</dt><dd>${A.rare ? '네임드 고정 옵션' : `+${A.lo}~${A.hi}${A.pct ? '%' : ''}`}</dd></div>`).join('');
+    list.appendChild(al);
+    section('링크');
+    for (const L of LINKS){
+      const a = document.createElement('article'); a.className = 'cx-link';
+      a.innerHTML = `<div class="cx-link-els">${L.els.map(k => `<i style="--k:rgb(${ELEMENTS[k].col})" title="${ELEMENTS[k].ko}"></i>`).join('<span>+</span>')}</div><div><b>${L.ko}</b><span>${L.els.map(k => ELEMENTS[k].ko).join(' + ')}</span><p>${L.d}</p></div>`;
+      list.appendChild(a);
+    }
+    section('네임드 코어');
+    for (const k in NAMED){
+      const N = NAMED[k], src = ROCK[k] ? ROCK[k].ko : '';
+      const c = { grade:'named', el:N.el, affixes:[] };
+      item(ELEMENTS[N.el].col, N.ko, ELEMENTS[N.el].en, `${src}${josa(src)}${k === 'elite' ? ' 드물게(5%)' : ''} 떨궈요. 고정 옵션에 무작위 옵션 1개가 더 붙어요.`,
+        N.fixed.map(([a, v]) => [AFFIX[a].ko, `+${v}${AFFIX[a].pct ? '%' : ''}`]), cv => coreIcon(cv.getContext('2d'), c, 72, 72, 30));
     }
   } else {
     const n = Object.keys(ROCK).filter(k => seen.has(k)).length;

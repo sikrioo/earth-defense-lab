@@ -172,3 +172,19 @@ button{ font:inherit; color:inherit; }
 .cx-sec{ margin:6px 0 0; font-family:var(--num); font-size:12px; letter-spacing:.14em; color:var(--dim); font-weight:600; }
 .sheet .st-boss button{ border-color:rgba(255,120,100,.4); color:#ffb4a8; }
 .st-god{ display:flex; gap:8px; align-items:center; font-size:12px; color:var(--dim); }
+.cd-core{ border-color:color-mix(in srgb, var(--g) 60%, transparent); }
+.cd-grade{ font-size:12px; padding:1px 7px; border-radius:6px; border:1px solid var(--g); color:var(--g); vertical-align:2px; }
+.cd-el{ font-size:11px; color:var(--dim); font-family:var(--num); letter-spacing:.08em; margin-left:4px; }
+.cd-desc{ display:flex; flex-wrap:wrap; gap:4px 10px; }
+.cd-aff{ font-size:13px; color:#e6f0ff; } .cd-aff.fixed{ color:#ffc49a; }
+.cd-row small.cd-link{ color:#ffd36a; } .cd-row small.cd-new{ color:#9ff5c8; }
+.cx-flat{ grid-template-columns:1fr; }
+.cx-els{ display:flex; flex-wrap:wrap; gap:6px 14px; margin:0; font-size:13px; }
+.cx-els span{ display:flex; align-items:center; gap:6px; } .cx-els i{ width:12px; height:12px; border-radius:3px; background:var(--k); box-shadow:0 0 8px var(--k); } .cx-els em{ font-style:normal; color:var(--dim); font-size:11px; font-family:var(--num); }
+.cx-link{ display:grid; grid-template-columns:96px 1fr; gap:10px; align-items:center; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,211,106,.25); background:#0a0e18; }
+.cx-link-els{ display:flex; align-items:center; gap:4px; } .cx-link-els i{ width:16px; height:16px; border-radius:4px; background:var(--k); box-shadow:0 0 10px var(--k); } .cx-link-els span{ color:var(--dim); font-size:12px; }
+.cx-link b{ color:#ffd36a; font-weight:600; margin-right:8px; } .cx-link span{ color:var(--dim); font-size:12px; } .cx-link p{ margin:2px 0 0; font-size:13px; color:#dbe8f8; }
+.cx-tabs{ flex-wrap:wrap; }
+.cx-head{ gap:8px; padding:10px 10px; } .cx-head h2{ font-size:16px; letter-spacing:.12em; }
+.cx-tabs{ gap:4px; flex-wrap:nowrap; } .cx-tabs button{ padding:0 10px; } .cx-close{ padding:0 12px; }
+@media (max-width:360px){ .cx-head h2{ display:none; } .cx-head{ grid-template-columns:1fr auto; } }

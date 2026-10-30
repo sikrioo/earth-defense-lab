@@ -22,7 +22,7 @@ export const ROCK = {
   dark:    { ko:'암흑 물질', desc:'빛을 내지 않는 덩어리. 방어막 가까이 와야 보이고, 그 전에는 조준할 수 없다 (범위 공격은 맞는다).', hp:180, r:18, speed:46, dmg:30, energy:5, col:[170,130,230], sides:8, dark:true },
   node:    { ko:'불안정 핵', desc:'블랙홀 둘레를 도는 불안정한 핵. 모두 부숴야 블랙홀 본체가 잠깐 드러난다.', hp:900, r:16, speed:0, dmg:0, energy:8, col:[255,170,90], sides:6, node:true },
   saturn:  { ko:'토성의 잔해', desc:'보스. 사라진 토성의 부서진 핵. 고리 조각을 흩뿌리고, 고리가 남아 있는 동안은 피해를 절반만 받는다.', hp:8000, r:74, speed:9, dmg:700, energy:140, col:[255,200,120], boss:true, saturn:true, custom:true, every:2.8 },
-  blackhole:{ ko:'블랙홀', desc:'최종 보스. 목성과 토성을 삼킨 것. 지구 가까이 와서 궤도를 돌며 탄환과 광물을 빨아들인다. 둘레를 도는 불안정 핵을 모두 부숴야 본체가 7초 동안 드러난다.', hp:9000, r:80, speed:7, dmg:5000, energy:300, col:[255,130,60], boss:true, blackhole:true, custom:true, spawns:'dark', every:4.5 },
+  blackhole:{ ko:'블랙홀', desc:'최종 보스. 목성과 토성을 삼킨 것. 멈추지 않고 지구로 다가오며 탄환과 광물을 삼키고, 가까워질수록 요새를 빨아들인다. 방어막에 닿으면 지구가 삼켜진다. 둘레를 도는 불안정 핵을 모두 부숴야 본체가 7초 동안 드러나고 뒤로 밀려난다.', hp:9000, r:80, speed:5, dmg:5000, energy:300, col:[255,130,60], boss:true, blackhole:true, custom:true, spawns:'dark', every:4.5 },
   planet:  { ko:'떠돌이 행성', desc:'보스. 목성 궤도에서 밀려난 떠돌이 행성. 닿으면 요새가 거의 무너진다.', hp:9000, r:86, speed:9,   dmg:600, energy:120, col:[255,70,60],   boss:true, planet:true, spawns:'dart', every:2.4 },
 };
 
@@ -131,18 +131,58 @@ export const ORE = { yieldMul:1.35, life:12, coreLife:45, magnet:46, coreDrift:2
     core:    { ko:'에너지 코어', col:[255,220,140], from:'엘리트·보스' },
   },
   base:{ drones:2, speed:230, scoop:24, cap:3, yield:0, armor:0, kinds:['ore'] } };   // the fortress's own two slow drones
-// energy cores: dropped by elites (one common core) and bosses (a singularity core plus a common one).
-// Each turret has one core slot per tier (Mk I/II/III).
-export const CORES = {
-  power: { ko:'과충전 코어', en:'OVERCHARGE', col:[255,96,84],   d:'피해 +25%', ops:{ dmg:1.25 } },
-  speed: { ko:'가속 코어',   en:'ACCELERATOR', col:[255,206,90], d:'발사·충전·재사용 속도 +20%', ops:{ speed:1.2 } },
-  reach: { ko:'확장 코어',   en:'EXTENDER', col:[96,190,255],    d:'사거리·범위 +20%', ops:{ reach:1.2 } },
-  prime: { ko:'특이점 코어', en:'SINGULARITY', col:[220,140,255], d:'피해 +40% · 속도 +15%', ops:{ dmg:1.4, speed:1.15 }, boss:true },
+// Energy cores work like jewels: each has a grade, an element and random affixes rolled inside fixed ranges.
+// Grades: how many affixes and where in the range they roll. Named cores come from bosses: fixed affixes + one random.
+export const GRADES = {
+  common:  { ko:'일반',   en:'COMMON',   n:1, lo:0,   col:[205,215,230], w:50 },
+  refined: { ko:'정제',   en:'REFINED',  n:2, lo:0,   col:[110,220,255], w:34 },
+  pure:    { ko:'고순도', en:'PURE',     n:3, lo:0,   col:[200,140,255], w:13 },
+  flawless:{ ko:'무결',   en:'FLAWLESS', n:3, lo:.5,  col:[255,205,90],  w:3 },
+  named:   { ko:'네임드', en:'NAMED',    n:1, lo:.3,  col:[255,130,80],  w:0 },
+};
+// elements: the colour of a core, and what links it can form
+export const ELEMENTS = {
+  heat:    { ko:'열',   en:'THERMAL', col:[255,110,70] },
+  cold:    { ko:'냉기', en:'CRYO',    col:[120,200,255] },
+  arc:     { ko:'전격', en:'ARC',     col:[190,150,255] },
+  kinetic: { ko:'운동', en:'KINETIC', col:[255,210,100] },
+  gravity: { ko:'중력', en:'GRAVITY', col:[110,240,190] },
+};
+// affixes and their fixed ranges (whole numbers). dmg/speed/reach scale stats; the rest work on each hit.
+export const AFFIX = {
+  dmg:     { ko:'피해',               lo:8,  hi:16, pct:true },
+  speed:   { ko:'발사·충전 속도',      lo:6,  hi:12, pct:true },
+  reach:   { ko:'사거리·범위',         lo:6,  hi:12, pct:true },
+  crit:    { ko:'치명 확률 (피해 2.5배)', lo:4,  hi:8,  pct:true },
+  pierce:  { ko:'장갑 관통',          lo:2,  hi:4 },
+  chilled: { ko:'냉각된 적에게 피해',   lo:10, hi:20, pct:true },
+  big:     { ko:'엘리트·보스에게 피해', lo:10, hi:20, pct:true },
+  ore:     { ko:'처치한 적의 광석',     lo:10, hi:25, pct:true },
+  organic: { ko:'생체형에게 피해',      lo:20, hi:40, pct:true, rare:true },
 };
 export const CORE_KEYS = {
   dmg:  { up:['dmg', 'dps', 'burn'], down:[] },
   speed:{ up:['rate', 'speed'], down:['every', 'charge', 'recharge', 'cool', 'rearm'] },
   reach:{ up:['range', 'radius', 'blast', 'hop', 'scoop'], down:[] },
+};
+// links: all of a turret's slots are linked (2 at MK II, 3 at MK III). Element combinations switch these on.
+export const LINKS = [
+  { id:'thermo',    ko:'열충격',       els:['heat', 'cold'],            d:'냉각된 적에게 주는 피해 +35%' },
+  { id:'incend',    ko:'소이탄',       els:['heat', 'kinetic'],         d:'맞힌 적에게 화상 (초당 6, 3초)' },
+  { id:'ap',        ko:'철갑탄',       els:['kinetic', 'kinetic'],      d:'장갑을 완전히 무시' },
+  { id:'overcur',   ko:'과전류',       els:['arc', 'arc'],              d:'맞힐 때 가끔 번개가 근처 적 2명에게 튐 (피해 50%)' },
+  { id:'permafrost',ko:'영구 동토',    els:['cold', 'gravity'],         d:'맞힌 적 25% 감속 (1초)' },
+  { id:'collapse',  ko:'붕괴',         els:['gravity', 'kinetic'],      d:'처치한 자리가 꺼지며 주변 적을 끌어당기고 피해 (처치한 적 체력의 30%)' },
+  { id:'plasmaarc', ko:'플라즈마 아크', els:['heat', 'arc', 'kinetic'],  d:'맞힌 자리에서 작은 폭발 (피해 35%, 반경 45)' },
+  { id:'stasis',    ko:'정지장',       els:['cold', 'arc', 'gravity'],  d:'맞힐 때 가끔 1초 정지 (보스 0.3초)' },
+];
+// named cores: one per boss (and a rare one from elites); plain names, fixed affixes
+export const NAMED = {
+  colossus:{ ko:'거대 운석 핵',     el:'kinetic', fixed:[['dmg', 25], ['pierce', 6]] },
+  hive:    { ko:'생체 행성 심장',   el:'heat',    fixed:[['organic', 60], ['dmg', 15]] },
+  planet:  { ko:'떠돌이 행성 파편', el:'gravity', fixed:[['reach', 25], ['big', 25]] },
+  saturn:  { ko:'토성 고리 조각',   el:'cold',    fixed:[['speed', 20], ['chilled', 30]] },
+  elite:   { ko:'수정 운석 결정',   el:'arc',     fixed:[['crit', 12], ['dmg', 15]] },
 };
 export const slotsFor = lv => tierFor(lv);
 
