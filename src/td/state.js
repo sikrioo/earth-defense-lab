@@ -2,7 +2,7 @@
 export const G = {
   phase:'wave',          // 'wave' | 'break' | 'over' | 'win'
   wave:0, breakT:0,
-  speed:1, paused:false, picking:false,
+  speed:1, paused:false, picking:false, codexOpen:false,
   hp:0, hpMax:0, regen:0, hitT:0,
   energy:0, need:0, picks:0, energyMul:1, shatter:0,
   kills:0, time:0, runTime:0,

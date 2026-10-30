@@ -29,11 +29,11 @@ export const levelOf = t => Object.values(t.lv).reduce((a, b) => a + b, 0);
 export function placeTurrets(){ for (const t of turrets){ const p = V.mounts[t.m]; t.x = p.x; t.y = p.y - 4; } }
 
 // target: the rock closest to the shield inside range, skipping ones already taken
-function target(t, range, skip){
+function target(t, range, skip, minRange = 0){
   let best = null, by = -1e9;
   for (const e of enemies){
     if (!alive(e) || (skip && skip.has(e)) || e.y < -e.r) continue;
-    if (Math.hypot(e.x - t.x, e.y - t.y) > range) continue;
+    const d = Math.hypot(e.x - t.x, e.y - t.y); if (d > range || d < minRange) continue;
     if (e.y > by){ by = e.y; best = e; }
   }
   return best;
@@ -45,9 +45,13 @@ export function updTurrets(dt){
   for (const t of turrets){
     const s = t.s; t.cd -= dt; t.kick = Math.max(0, (t.kick || 0) - dt*7);
     if (t.type === 'gatling'){
-      const e = target(t, s.range); if (!e) continue; aimAt(t, e, dt);
+      // overheat: firing builds heat; at 100 the barrels must cool before firing again
+      t.heat = t.heat || 0;
+      if (t.over > 0){ t.over -= dt; if (t.over <= 0) t.heat = 0; if (Math.random() < dt*25){ const m = muzzle(t); emit({ x:m.x, y:m.y, vx:rand(-15, 15), vy:rand(-50, -25), drag:1, life:.7, s0:3, s1:9, a:.3, pal:[[200,210,220],[120,130,150]] }); } continue; }
+      const e = target(t, s.range); if (!e){ t.heat = Math.max(0, t.heat - 30*dt); continue; } aimAt(t, e, dt);
       if (t.cd <= 0){
         t.cd = 1/s.rate; t.kick = .7;
+        t.heat += s.heatPer; if (t.heat >= 100){ t.heat = 100; t.over = s.cool; }
         // lead the target: where it will be when a bullet gets there
         const m0 = muzzle(t), d0 = Math.hypot(e.x - m0.x, e.y - m0.y)/1100;
         const lx = e.x + (e.T.comet ? e.vx : e.vx + e.px)*d0, ly = e.y + (e.T.comet ? e.vy : e.vy + e.py)*d0;
@@ -59,21 +63,26 @@ export function updTurrets(dt){
         }
       }
     } else if (t.type === 'laser'){
+      // battery: firing drains it; empty means a full recharge before the next beam
+      if (t.bat === undefined) t.bat = s.cap;
+      if (t.charging){ t.beams = []; t.bat += s.cap/s.recharge*dt; if (t.bat >= s.cap){ t.bat = s.cap; t.charging = false; } continue; }
       const skip = new Set(); t.beams = [];
       for (let b = 0; b < s.beams; b++){ const e = target(t, s.range, skip); if (!e) break; skip.add(e); t.beams.push(e); }
-      if (!t.beams.length){ t.ramp = 0; t.rampOn = null; continue; }
+      if (!t.beams.length){ t.ramp = 0; t.rampOn = null; t.bat = Math.min(s.cap, t.bat + s.cap/s.recharge*dt); continue; }
       aimAt(t, t.beams[0], dt);
+      t.bat -= dt*(1 + (t.beams.length - 1)*.5);
+      if (t.bat <= 0){ t.bat = 0; t.charging = true; t.ramp = 0; t.rampOn = null; }
       if (t.rampOn !== t.beams[0]){ t.rampOn = t.beams[0]; t.ramp = 0; }
       t.ramp += dt; t.mult = 1 + (s.rampMax - 1)*Math.min(1, t.ramp/s.ramp);
       t.beams.forEach((e, i) => hurt(e, s.dps*(i ? 1 : t.mult)*dt, { chillBonus:s.melt }));
       if (Math.random() < dt*20){ const e = t.beams[0]; hitSpark(e.x + rand(-4, 4), e.y + rand(-4, 4), t.T.col); }
     } else if (t.type === 'missile'){
-      const e = target(t, s.range); if (!e) continue; aimAt(t, e, dt);
+      const e = target(t, s.range, null, s.minRange); if (!e) continue; aimAt(t, e, dt);
       if (t.cd <= 0){
         t.cd = s.every; t.kick = 1;
         for (let i = 0; i < s.count; i++){
           const a = -Math.PI/2 + (i - (s.count - 1)/2)*.32;
-          shots.push({ k:'missile', x:t.x + (i - (s.count - 1)/2)*4, y:t.y - PIVOT - 10, vx:Math.cos(a)*240, vy:Math.sin(a)*240, tgt:e, dmg:s.dmg, blast:s.blast, cluster:s.cluster, life:3, delay:i*.05, col:t.T.col });
+          shots.push({ k:'missile', minR:s.minRange, tx:t.x, ty:t.y, x:t.x + (i - (s.count - 1)/2)*4, y:t.y - PIVOT - 10, vx:Math.cos(a)*240, vy:Math.sin(a)*240, tgt:e, dmg:s.dmg, blast:s.blast, cluster:s.cluster, life:3, delay:i*.05, col:t.T.col });
         }
       }
     } else if (t.type === 'cryo'){
@@ -89,7 +98,7 @@ export function updTurrets(dt){
       const pts = [[t.x, t.y - 34*TS]], seen = new Set(); let cur = e;
       for (let j = 0; j <= s.jumps && cur; j++){
         seen.add(cur); pts.push([cur.x, cur.y]);
-        hurt(cur, s.dmg*(j ? .85 : 1), { chillBonus:isChilled(cur) ? s.conduct : 0 });
+        hurt(cur, s.dmg*(s.conduct ? 1 : Math.pow(s.falloff, j)), { chillBonus:isChilled(cur) ? s.conduct : 0 });
         if (s.stun && alive(cur)) cur.stunT = Math.max(cur.stunT, s.stun);
         let nx = null, nd = s.hop; for (const o of enemies){ if (!alive(o) || seen.has(o)) continue; const d = Math.hypot(o.x - cur.x, o.y - cur.y); if (d < nd){ nd = d; nx = o; } }
         cur = nx;
@@ -98,7 +107,47 @@ export function updTurrets(dt){
       fx.push({ update(dt2){ life -= dt2; return life > 0; }, draw(){ for (let j = 1; j < pts.length; j++) boltWithForks(pts[j - 1][0], pts[j - 1][1], pts[j][0], pts[j][1], life/.2, 1.6, [[255,255,255],[226,220,255],[176,156,255],[120,90,240],[60,40,170]], 1); } });
       for (let j = 1; j < pts.length; j++) burst(pts[j][0], pts[j][1], t.T.col, 4, 140, 1.6);
     } else if (t.type === 'drone') updDrones(t, dt);
+    else if (t.type === 'rail') updRail(t, s, dt);
+    else if (t.type === 'flame') updFlame(t, s, dt);
   }
+}
+
+/* ----- railgun: charge, lock the aim near the end, then one line through everything ----- */
+function updRail(t, s, dt){
+  const e = target(t, s.range);
+  if (!e){ t.chg = Math.max(0, (t.chg || 0) - dt/s.charge); t.locked = false; return; }
+  t.chg = (t.chg || 0) + dt/s.charge;
+  if (t.chg < s.lockAt){ aimAt(t, e, dt); t.locked = false; } else t.locked = true;
+  if (t.chg < 1) return;
+  t.chg = 0; t.locked = false; t.kick = 1;
+  const m = muzzle(t), dx = Math.cos(t.ang), dy = Math.sin(t.ang), L = 2000, ex = m.x + dx*L, ey = m.y + dy*L;
+  for (const o of enemies){
+    if (!alive(o)) continue;
+    const px = o.x - m.x, py = o.y - m.y, along = px*dx + py*dy; if (along < 0) continue;
+    if (Math.abs(px*dy - py*dx) > o.r + s.width/2) continue;
+    hurt(o, s.dmg, { pierceArmor:true });
+    if (s.shock){ hurtArea(o.x, o.y, 50, s.dmg*s.shock); explode(o.x, o.y, 40, t.T.col); } else burst(o.x, o.y, t.T.col, 10, 300, 2.4);
+  }
+  let life = .3;
+  fx.push({ update(d){ life -= d; return life > 0; }, draw(){ const k = life/.3; neonLine(m.x, m.y, ex, ey, t.T.col, s.width*.5*k + 1, k); neonLine(m.x, m.y, ex, ey, [255,255,255], 1.2*k, k); } });
+  sprite(m.x, m.y, 40, t.T.col, .9);
+}
+/* ----- flamethrower: a short cone that burns; burns stack and tick on their own ----- */
+function updFlame(t, s, dt){
+  const e = target(t, s.range); t.firing = false; if (!e) return;
+  aimAt(t, e, dt); t.firing = true;
+  const m = muzzle(t);
+  for (const o of enemies){
+    if (!alive(o)) continue;
+    const dx = o.x - m.x, dy = o.y - m.y, d = Math.hypot(dx, dy); if (d > s.range + o.r) continue;
+    let da = Math.atan2(dy, dx) - t.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
+    if (Math.abs(da) > s.cone/2 + Math.atan2(o.r, d)) continue;
+    hurt(o, s.dps*dt, { organicBonus:s.organic });
+    o.burn = Math.min(s.stacks, (o.burn || 0) + dt*3); o.burnT = 3; o.burnDps = s.burn*(o.T.organic ? 1 + s.organic : 1);
+  }
+  for (let i = 0; i < 3; i++){ if (Math.random() > dt*60) continue;
+    const a = t.ang + rand(-s.cone/2, s.cone/2), v = s.range*rand(1.6, 2.2);
+    emit({ x:m.x, y:m.y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, drag:2.4, life:rand(.35, .5), s0:rand(5, 8), s1:rand(14, 22), a:.55, pal:[[255,250,220],[255,190,80],[255,110,40],[180,40,20]] }); }
 }
 
 /* ----- shots ----- */
@@ -166,8 +215,9 @@ function updDrones(t, dt){
     d.x += d.vx*dt; d.y += d.vy*dt;
     d.x = Math.max(10, Math.min(PW - 10, d.x)); d.y = Math.max(30, Math.min(V.defY, d.y));
     if (s.pull) for (const e of enemies){ if (!alive(e) || e.T.boss) continue; const dx = d.x - e.x, dy = d.y - e.y, dd = Math.hypot(dx, dy); if (dd < s.radius*1.6 && dd > 2){ e.px += dx/dd*90*s.pull*dt; e.py += dy/dd*60*s.pull*dt; } }
-    d.t += dt;
-    if (d.t >= s.every){
+    d.t = Math.min(d.t + dt, s.every*1.01);
+    d.moving = Math.hypot(d.vx, d.vy) > s.hoverSpeed;
+    if (d.t >= s.every && !d.moving){
       d.t -= s.every; d.rotTo += TAU/6;
       const n = hurtArea(d.x, d.y, s.radius, s.dmg);
       if (n){ d.pulse = 1; sprite(d.x, d.y, s.radius*.9, [255,255,255], .5); emit({ x:d.x + s.radius*.6, y:d.y, vx:rand(80, 140), vy:rand(-220, -160), ay:700, life:.6, s0:2.2, s1:2, pal:[[232,163,61]] }); }
@@ -178,12 +228,13 @@ function updDrones(t, dt){
 /* ----- drawing: a pedestal on the pad, a metal gun head on a pivot that turns to the aim and kicks back ----- */
 const TS = 1.5;                                             // guns are drawn in a 1.5× local scale so they read on a phone
 export const PIVOT = 13*TS;                                 // pivot height above the pad point
-const BARREL = { gatling:34*TS, laser:40*TS, missile:20*TS, cryo:28*TS, tesla:0, drone:0 };
-const METAL = ['#4a5568', '#262d3b', '#11151e'];
+const BARREL = { gatling:34*TS, laser:40*TS, missile:20*TS, cryo:28*TS, tesla:0, drone:0, rail:46*TS, flame:26*TS };
+let METAL = ['#4a5568', '#262d3b', '#11151e'];
+const METAL_ICON = ['#8d9ab3', '#4d586e', '#232a38'];       // brighter for card and codex art on dark panels
 function metal(build, x0, y0, x1, y1){
   const g = ctx.createLinearGradient(x0, y0, x1, y1);
   g.addColorStop(0, METAL[0]); g.addColorStop(.45, METAL[1]); g.addColorStop(1, METAL[2]);
-  ctx.globalCompositeOperation = 'source-over'; ctx.beginPath(); build(); ctx.fillStyle = g; ctx.fill();
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.beginPath(); build(); ctx.fillStyle = g; ctx.fill();
   ctx.strokeStyle = '#07090e'; ctx.lineWidth = 1.2; ctx.stroke();
 }
 const rr = (x, y, w, h, r) => { ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
@@ -226,6 +277,17 @@ function paintHead(type, col){
       accent(() => ctx.arc(x, y, 4, 0, TAU), col, 1, .9);
     }
     accent(() => { ctx.moveTo(-12, 4); ctx.lineTo(12, 4); }, col, 1, .6);
+  } else if (type === 'rail'){
+    for (const x of [-5, 5]) metal(() => rr(x - 2.2, -46, 4.4, 42, 1.5), x - 2.2, 0, x + 2.2, 0);
+    for (const y of [-38, -28, -18]) accent(() => { ctx.moveTo(-5, y); ctx.lineTo(5, y); }, col, 1, .6);
+    metal(() => rr(-11, -10, 22, 20, 4), -11, -10, 11, 10);
+    accent(() => { ctx.moveTo(-7, -4); ctx.lineTo(7, -4); ctx.moveTo(-7, 2); ctx.lineTo(7, 2); }, col, 1.1, .9);
+  } else if (type === 'flame'){
+    metal(() => { ctx.moveTo(-3.5, -10); ctx.lineTo(-7, -27); ctx.lineTo(7, -27); ctx.lineTo(3.5, -10); ctx.closePath(); }, -7, -27, 7, -10);
+    metal(() => rr(-8, -29, 16, 4, 2), -8, -29, 8, -25);
+    for (const x of [-10, 10]) metal(() => rr(x - 5, -7, 10, 17, 5), x - 5, -7, x + 5, 10);
+    metal(() => rr(-6, -12, 12, 14, 3), -6, -12, 6, 2);
+    accent(() => { ctx.moveTo(-10, -3); ctx.lineTo(-10, 6); ctx.moveTo(10, -3); ctx.lineTo(10, 6); }, col, 1.2, .9);
   } else if (type === 'cryo'){
     for (const x of [-12, 12]){ metal(() => rr(x - 4, -8, 8, 16, 4), x - 4, -8, x + 4, 8); accent(() => { ctx.moveTo(x, -5); ctx.lineTo(x, 5); }, [200,240,255], 1.4, .9); }
     metal(() => rr(-6, -28, 12, 24, 3), -6, 0, 6, 0);
@@ -256,6 +318,16 @@ export function drawTurrets(){
     else if (t.type === 'drone') sprite(t.x, t.y - 21*TS, 6, t.T.col, .6 + .4*Math.sin(time*6));
     else if (k > .55){ const m = muzzle(t, BARREL[t.type] + 4); sprite(m.x, m.y, t.type === 'gatling' ? 10 : 16, [255,255,255], k*.8); sprite(m.x, m.y, 22, t.T.col, k*.5); }
     if (t.type === 'laser' && t.beams && t.beams.length){ const m = muzzle(t); sprite(m.x, m.y, 9 + (t.mult || 1)*2, t.T.col, .9); }
+    if (t.type === 'gatling' && t.heat > 30){ const m = muzzle(t, BARREL.gatling*.6), h = t.heat/100; sprite(m.x, m.y, 8 + h*8, [255, 120 - h*60, 40], h*.8); }
+    if (t.type === 'rail' && t.chg > 0){
+      const m = muzzle(t), k = t.chg;
+      sprite(m.x, m.y, 6 + k*18, t.T.col, .3 + k*.6);
+      const L = 900; neonLine(m.x, m.y, m.x + Math.cos(t.ang)*L, m.y + Math.sin(t.ang)*L, t.locked ? [255,90,70] : t.T.col, .6, t.locked ? .7 : .15 + k*.25);
+    }
+    if (t.type === 'flame'){ const m = muzzle(t); sprite(m.x, m.y, t.firing ? 16 : 5, [255,150,60], t.firing ? .8 : .6 + .3*Math.sin(time*9)); }
+    // state bars under the pad: laser battery, gatling heat, railgun charge
+    const bar = t.type === 'laser' ? [(t.bat ?? t.s.cap)/t.s.cap, t.charging ? [255,90,220] : [255,170,240]] : t.type === 'gatling' ? [t.over > 0 ? 1 : (t.heat || 0)/100, t.over > 0 ? [255,80,60] : [255,190,90]] : t.type === 'rail' ? [t.chg || 0, [150,255,190]] : null;
+    if (bar){ ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(t.x - 16, t.y + 29, 32, 4); ctx.fillStyle = rgb(bar[1]); ctx.fillRect(t.x - 16, t.y + 29, 32*Math.max(0, Math.min(1, bar[0])), 4); if (t.charging || t.over > 0){ ctx.globalAlpha = .5 + .5*Math.sin(time*12); ctx.strokeStyle = rgb(bar[1]); ctx.lineWidth = 1; ctx.strokeRect(t.x - 16.5, t.y + 28.5, 33, 5); } ctx.globalCompositeOperation = 'lighter'; }
     const lv = levelOf(t);
     if (lv){ ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.font = '700 10px "Chakra Petch", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#05070c'; ctx.fillRect(t.x - 10, t.y + 15, 20, 12); ctx.fillStyle = rgb(t.T.col); ctx.fillText(`+${lv}`, t.x, t.y + 21); ctx.globalCompositeOperation = 'lighter'; }
@@ -283,10 +355,10 @@ function drawDrone(d, R){
 export function drawTurretIcon(canvas, type){
   const g = canvas.getContext('2d'), s = canvas.width/56;
   g.setTransform(s*.82, 0, 0, s*.82, s*28, s*50); g.clearRect(-40, -70, 80, 90);
-  const keep = ctx; setCtx(g);
+  const keep = ctx, keepM = METAL; setCtx(g); METAL = METAL_ICON;
   g.globalCompositeOperation = 'lighter'; sprite(0, -20, 34, TURRET[type].col, .22);
   paintBase(type, TURRET[type].col);
   if (BARREL[type]){ g.save(); g.translate(0, -13); paintHead(type, TURRET[type].col); g.restore(); }
   if (type === 'tesla'){ g.globalCompositeOperation = 'lighter'; sprite(0, -34, 9, [226,220,255], .9); }
-  setCtx(keep);
+  setCtx(keep); METAL = keepM;
 }

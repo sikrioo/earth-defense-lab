@@ -17,6 +17,7 @@
     <div class="wave" aria-live="polite"><span class="wl">WAVE</span><b id="wn">1</b><span class="wt">/ 30</span></div>
     <div class="wbar" aria-hidden="true"><i id="wfill"></i></div>
     <div class="tbtns">
+      <button type="button" id="codexbtn" aria-label="도감">도감</button>
       <button type="button" id="spd" aria-pressed="false" aria-label="게임 속도">×1</button>
       <button type="button" id="pausebtn" aria-pressed="false" aria-label="일시정지">II</button>
     </div>
@@ -44,9 +45,22 @@
     <p class="sheet-sub">지금 빌드</p>
     <ul class="build" id="build"></ul>
     <div class="sheet-btns"><button type="button" id="resume" class="primary">계속하기</button><button type="button" id="restart">처음부터</button></div>
+    <button type="button" id="pcodex" class="wide">도감 · 무기와 적</button>
     <a class="classic" href="./classic.html">클래식 모드 (예전 버전) →</a>
   </div>
 </div>
+
+<div class="codex" id="codex" hidden role="dialog" aria-modal="true" aria-label="도감">
+  <div class="cx-box">
+    <header class="cx-head">
+      <h2>CODEX</h2>
+      <div class="cx-tabs" role="tablist"><button type="button" role="tab" data-tab="weapons" aria-selected="true">무기</button><button type="button" role="tab" data-tab="rocks" aria-selected="false">적</button></div>
+      <button type="button" class="cx-close">닫기</button>
+    </header>
+    <div class="cx-list" id="cxlist"></div>
+  </div>
+</div>
+<div class="toast" id="toast" aria-live="polite"></div>
 
 <div class="sheet over" id="over" hidden role="dialog" aria-label="결과">
   <div class="sheet-box">

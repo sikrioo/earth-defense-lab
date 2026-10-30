@@ -1,5 +1,5 @@
 /* ---------- fortress mode: rocks — spawning, falling, taking hits, breaking, hitting the shield ---------- */
-import { TAU, ctx, rand, time } from '../core/canvas.js';
+import { TAU, ctx, rand, setCtx, time } from '../core/canvas.js';
 import { addShake } from '../core/lights.js';
 import { emit, sprite } from '../core/particles.js';
 import { srng } from '../core/util.js';
@@ -8,6 +8,7 @@ import { G, enemies } from './state.js';
 import { PW, V, shieldY } from './view.js';
 import { bigNumber, burst, explode, mixc, rgb } from './fx.js';
 import { hitFortress } from './fortress.js';
+import { discover } from './codex.js';
 
 const SPR = 2;                       // sprite pixels per world unit
 const sprites = new Map();
@@ -25,7 +26,7 @@ export function spawnRock(type, x, y, opts = {}){
     const aimX = rand(PW*.15, PW*.85), dx = aimX - x, dy = V.defY - y, d = Math.hypot(dx, dy);
     e.vx = dx/d*e.speed; e.vy = dy/d*e.speed; e.rot = Math.atan2(e.vy, e.vx); e.spin = 0;
   } else e.tx = Math.max(e.r, Math.min(PW - e.r, x + rand(-60, 60)));
-  enemies.push(e); return e;
+  enemies.push(e); discover(type); return e;
 }
 
 // all damage goes through here: armour, the cryo "shatter" bonus, numbers for big hits
@@ -33,6 +34,7 @@ export function hurt(e, dmg, opts = {}){
   if (!alive(e)) return 0;
   let d = dmg;
   if (isChilled(e)) d *= 1 + G.shatter + (opts.chillBonus || 0);
+  if (e.T.organic && opts.organicBonus) d *= 1 + opts.organicBonus;
   if (e.T.armor && !opts.pierceArmor) d = Math.max(d*.25, d - e.T.armor);
   e.hp -= d; e.flash = .1;
   if (d >= 60 || opts.crit) bigNumber(e.x + rand(-6, 6), e.y - e.r - 6, d, opts.crit ? [255,230,120] : e.T.col);
@@ -66,6 +68,7 @@ function kill(e){
 export function updRocks(dt){
   for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].dead) enemies.splice(i, 1);
   for (const e of enemies){
+    if (e.burnT > 0){ e.burnT -= dt; hurt(e, e.burn*e.burnDps*dt); if (e.dead) continue; if (e.burnT <= 0) e.burn = 0; }
     e.flash = Math.max(0, e.flash - dt); e.slowT = Math.max(0, e.slowT - dt); e.freezeT = Math.max(0, e.freezeT - dt); e.stunT = Math.max(0, e.stunT - dt);
     const k = e.freezeT > 0 || e.stunT > 0 ? 0 : e.slowT > 0 ? 1 - e.slowAmt : 1;
     if (e.T.comet){ e.x += e.vx*k*dt; e.y += e.vy*k*dt; }
@@ -204,6 +207,19 @@ function hiveEye(e){
   ctx.restore();
   ctx.globalCompositeOperation = 'lighter'; sprite(e.x + ex, e.y + ey, R*.5, [255,120,60], .35*blink); ctx.globalCompositeOperation = 'source-over';
 }
+// codex art: the rock (and the living planet's eye) fitted into a canvas; unknown ones as a dark silhouette
+export function drawRockIcon(canvas, type, hidden){
+  const T = ROCK[type], e = { type, T, r:T.r, variant:0, seed:3, x:0, y:0, rot:-.4 };
+  const s = rockSprite(e), g = canvas.getContext('2d'), sc = canvas.width/(s.size*1.05);
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height);
+  g.setTransform(sc, 0, 0, sc, canvas.width/2, canvas.height/2);
+  const keep = ctx; setCtx(g);
+  if (!hidden){ g.globalCompositeOperation = 'lighter'; sprite(0, 0, T.r*1.5, T.col, .25); }
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.save(); g.rotate(T.organic ? 0 : e.rot); g.drawImage(s.c, -s.o, -s.o, s.size, s.size); g.restore();
+  if (type === 'hive' && !hidden) hiveEye(e);
+  if (hidden){ g.globalCompositeOperation = 'source-atop'; g.fillStyle = '#0d1220'; g.fillRect(-s.size, -s.size, s.size*2, s.size*2); }
+  setCtx(keep);
+}
 export function drawRocks(){
   // glow and tails first (additive), then bodies
   for (const e of enemies){
@@ -213,6 +229,7 @@ export function drawRocks(){
       sprite(e.x, e.y, e.r*3.2, [255,110,70], .6);
     } else sprite(e.x, e.y, e.r*(e.T.boss ? 1.9 : 1.6), e.T.col, e.T.boss ? .22 : .14);
     if (isChilled(e)) sprite(e.x, e.y, e.r*1.5, [130,205,255], e.freezeT > 0 ? .5 : .28);
+    if (e.burnT > 0) sprite(e.x + rand(-e.r, e.r)*.3, e.y - e.r*.3, e.r*(1.1 + Math.random()*.5), [255,120,40], .25 + e.burn*.06);
   }
   ctx.globalCompositeOperation = 'source-over';
   for (const e of enemies){

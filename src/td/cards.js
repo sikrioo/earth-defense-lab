@@ -37,7 +37,7 @@ export function open(){
   options.forEach((o, i) => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'card';
     let col, tag, title, sub, desc, pips = '';
-    if (o.kind === 'new'){ const T = TURRET[o.type]; col = T.col; tag = 'NEW TURRET'; title = T.ko; sub = T.en; desc = T.desc; }
+    if (o.kind === 'new'){ const T = TURRET[o.type]; col = T.col; tag = 'NEW TURRET'; title = T.ko; sub = `${T.en} · ${T.role}`; desc = `${T.desc}<span class="ccons">단점 · ${T.cons}</span>`; }
     else if (o.kind === 'up'){ const T = o.t.T, n = o.t.lv[o.u.id] || 0; col = T.col; tag = o.u.max === 1 ? 'CORE' : 'UPGRADE'; title = o.u.ko; sub = T.ko; desc = o.u.d; pips = '◆'.repeat(n + 1) + '◇'.repeat(o.u.max - n - 1); }
     else { const n = fortLv[o.f.id] || 0; col = [120,255,190]; tag = 'FORTRESS'; title = o.f.ko; sub = '요새'; desc = o.f.d; pips = '◆'.repeat(n + 1) + '◇'.repeat(o.f.max - n - 1); }
     b.style.setProperty('--c', `rgb(${col})`);

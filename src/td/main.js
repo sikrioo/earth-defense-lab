@@ -11,6 +11,7 @@ import { bossAlive, startWave, updWaves } from './waves.js';
 import { drawBackdrop, drawFortress, invalidateBackdrop, updFortress } from './fortress.js';
 import { addTurret, drawTurrets, levelOf, placeTurrets, resetTurrets, turretAt, turrets, updShots, updTurrets } from './turrets.js';
 import { checkEnergy, choose, needFor, resetCards, smartPick } from './cards.js';
+import { openCodex } from './codex.js';
 
 // test hooks: ?auto=1 picks cards by itself, ?speed=4 runs faster, ?wave=12 starts later
 const QS = new URLSearchParams(location.search);
@@ -105,8 +106,12 @@ hud.pause.addEventListener('click', () => setPaused(!G.paused));
 $('resume').addEventListener('click', () => setPaused(false));
 $('restart').addEventListener('click', () => { setPaused(false); newRun(); });
 $('again').addEventListener('click', newRun);
+$('codexbtn').addEventListener('click', () => openCodex());
+$('pcodex').addEventListener('click', () => openCodex());
 addEventListener('keydown', e => {
+  if (G.codexOpen) return;
   if (e.key === 'Escape' || e.key === 'p') setPaused(!G.paused);
+  if (e.key === 'c') openCodex();
   if (e.key === ' '){ e.preventDefault(); hud.spd.click(); }
 });
 addEventListener('resize', () => { fitView(); placeTurrets(); invalidateBackdrop(); });
@@ -116,7 +121,7 @@ function frame(now){
   requestAnimationFrame(frame);
   const dt = Math.max(0, Math.min(.033, (now - last)/1000)); last = now;   // the first rAF stamp can predate `last`
   resetJag();
-  const running = !G.paused && !G.picking && (G.phase === 'wave' || G.phase === 'break');
+  const running = !G.paused && !G.picking && !G.codexOpen && (G.phase === 'wave' || G.phase === 'break');
   if (running){
     const steps = TEST_SPEED || G.speed;
     for (let i = 0; i < steps; i++){ tickClock(dt); tickBolts(dt); update(dt); }
@@ -130,4 +135,4 @@ fitView();
 newRun();
 requestAnimationFrame(frame);
 // for tests and tinkering in the console
-window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V };
+window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret };
