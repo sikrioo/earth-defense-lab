@@ -14,18 +14,30 @@ export function resetCards(){ for (const k in fortLv) delete fortLv[k]; options 
 function pool(){
   const out = [];
   const owned = new Set(turrets.map(t => t.type));
-  if (turrets.length < V.mounts.length)
-    for (const k in TURRET) if (!owned.has(k)) out.push({ kind:'new', type:k, w:turrets.length < 3 ? 2.2 : 1 });
+  // new turrets are the rare card: none for the first two picks, then one shared weight for all of them
+  // (so at most one new-turret card shows up at a time) that shrinks as the platform fills;
+  // a wider view with lots of empty pads makes them a little more likely again
+  const free = V.mounts.length - turrets.length;
+  if (free > 0 && G.picks > 2){
+    const types = Object.keys(TURRET).filter(k => !owned.has(k));
+    const w = (turrets.length === 1 ? .9 : turrets.length === 2 ? .6 : .38) + (V.mode !== 'line' && free > V.mounts.length/2 ? .5 : 0);
+    if (types.length) out.push({ kind:'new', types, w });
+  }
   for (const t of turrets) for (const u of UPG[t.type]) if ((t.lv[u.id] || 0) < u.max) out.push({ kind:'up', t, u, w:u.max === 1 ? .7 : 1.2 });
   for (const f of FORT_UPG) if ((fortLv[f.id] || 0) < f.max) out.push({ kind:'fort', f, w:.45 });
   return out;
 }
 function roll(onlyNew){
-  const p = pool().filter(o => !onlyNew || o.kind === 'new'), out = [];
+  if (onlyNew){
+    const owned = new Set(turrets.map(t => t.type)), types = Object.keys(TURRET).filter(k => !owned.has(k)).sort(() => Math.random() - .5);
+    return V.mounts.length > turrets.length ? types.slice(0, 3).map(type => ({ kind:'new', type })) : [];
+  }
+  const p = pool(), out = [];
   while (out.length < 3 && p.length){
     const tot = p.reduce((a, o) => a + o.w, 0); let r = Math.random()*tot, i = 0;
     for (; i < p.length - 1; i++) if ((r -= p[i].w) <= 0) break;
-    out.push(p.splice(i, 1)[0]);
+    const o = p.splice(i, 1)[0];
+    out.push(o.kind === 'new' ? { kind:'new', type:o.types[(Math.random()*o.types.length)|0] } : o);
   }
   return out;
 }

@@ -6,7 +6,7 @@ import { resetJag, tickBolts } from '../core/lightning.js';
 import { CORES, FORT, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
 import { G, enemies, fx, shots } from './state.js';
 import { MODES, fitView, modeFor, startCamera, tickCamera, V } from './view.js';
-import { drawRocks, updRocks } from './enemies.js';
+import { drawRocks, spawnRock, updRocks } from './enemies.js';
 import { bossAlive, startWave, updWaves } from './waves.js';
 import { drawBackdrop, drawFortress, invalidateBackdrop, updFortress } from './fortress.js';
 import { addTurret, drawTurrets, levelOf, placeTurrets, resetTurrets, turretAt, turrets, updShots, updTurrets } from './turrets.js';
@@ -192,4 +192,4 @@ fitView();
 newRun();
 requestAnimationFrame(frame);
 // for tests and tinkering in the console
-window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret, newRun, resetTurrets };
+window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret, newRun, resetTurrets, spawnRock };

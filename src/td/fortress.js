@@ -24,9 +24,10 @@ export function hitFortress(e){
   for (let i = 0; i < n; i++){ let x = p.x, y = p.y; const seg = [[x, y]], dir = a + Math.PI/2*(i % 2 ? 1 : -1) + (Math.random() - .5)*1.2;
     for (let j = 0; j < 4; j++){ const d = 6 + Math.random()*10, b = dir + (Math.random() - .5)*.9; x += Math.cos(b)*d; y += Math.sin(b)*d; seg.push([x, y]); } cr.push(seg); }
   hits.push({ a, t:0, cr, life:e.T.boss ? 1.4 : .9 });
-  addShake(e.T.boss ? 14 : 2 + Math.min(6, dmg/12));
+  addShake(e.T.boss ? 14 : e.T.comet ? 11 : 2 + Math.min(6, dmg/12));
   sfx.shield(e.T.boss || dmg > 40);
-  if (e.T.boss) G.hitStop = Math.max(G.hitStop || 0, .12);
+  if (e.T.boss || e.T.comet) G.hitStop = Math.max(G.hitStop || 0, e.T.boss ? .12 : .08);
+  if (e.T.comet){ explode(p.x, p.y, 90, [255,180,90]); G.hitT = 1.6; }
 }
 export function updFortress(dt){
   if (G.regen && G.hp > 0) G.hp = Math.min(G.hpMax, G.hp + G.regen*dt);

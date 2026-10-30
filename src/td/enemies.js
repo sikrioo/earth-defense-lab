@@ -25,7 +25,8 @@ export function spawnRock(type, x, y, opts = {}){
   e.max = e.hp = Math.round(T.hp*WAVES.hp(w)*(opts.hpMul || 1));
   // every rock heads for a point on the shield; it picks the side of Earth it came from
   aimAt(e, opts.aim ?? angC(x, y) + rand(-.25, .25));
-  if (T.comet){ const dx = e.tx - x, dy = e.ty - y, d = Math.hypot(dx, dy); e.vx = dx/d*e.speed; e.vy = dy/d*e.speed; e.rot = Math.atan2(e.vy, e.vx); e.spin = 0; }
+  // comets: the trajectory is shown for a moment first, then they come in at full speed
+  if (T.comet){ const dx = e.tx - x, dy = e.ty - y, d = Math.hypot(dx, dy); e.vx = dx/d*e.speed; e.vy = dy/d*e.speed; e.rot = Math.atan2(e.vy, e.vx); e.spin = 0; e.warnT = 1.1; sfx.cometWarn(); }
   enemies.push(e); discover(type); return e;
 }
 
@@ -87,7 +88,13 @@ export function updRocks(dt){
     if (e.burnT > 0){ e.burnT -= dt; hurt(e, e.burn*e.burnDps*dt); if (e.dead) continue; if (e.burnT <= 0) e.burn = 0; }
     e.flash = Math.max(0, e.flash - dt); e.slowT = Math.max(0, e.slowT - dt); e.freezeT = Math.max(0, e.freezeT - dt); e.stunT = Math.max(0, e.stunT - dt);
     const k = e.freezeT > 0 || e.stunT > 0 ? 0 : e.slowT > 0 ? 1 - e.slowAmt : 1;
-    if (e.T.comet){ e.x += e.vx*k*dt; e.y += e.vy*k*dt; }
+    if (e.T.comet){
+      if (e.warnT > 0){ e.warnT -= dt; if (e.warnT <= 0) sfx.comet(); continue; }
+      e.x += e.vx*k*dt; e.y += e.vy*k*dt;
+      // embers off the tail, and a low rumble while one is on screen
+      if (Math.random() < dt*70) emit({ x:e.x + rand(-4, 4), y:e.y + rand(-4, 4), vx:-e.vx*.18 + rand(-40, 40), vy:-e.vy*.18 + rand(-40, 40), drag:2.2, life:rand(.35, .7), s0:rand(3, 6), s1:1, pal:[[255,240,200],[255,160,70],[220,60,40],[80,30,30]] });
+      if (inWorld(e.x, e.y, 0)) addShake(.1);
+    }
     else {
       // steer for the chosen point on the shield; weavers sway across the line of travel
       const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy) || 1, ux = dx/d, uy = dy/d;
@@ -242,16 +249,36 @@ export function drawRockIcon(canvas, type, hidden){
 export function drawRocks(){
   // glow and tails first (additive), then bodies
   for (const e of enemies){
+    if (e.T.comet && e.warnT > 0){
+      // the warning: a dashed red line along the path and a target ring where it will hit
+      const k = .45 + .45*Math.sin(time*22);
+      ctx.save(); ctx.lineCap = 'round'; ctx.globalAlpha = 1;
+      ctx.strokeStyle = rgb([255,60,40], .12 + .12*k); ctx.lineWidth = 14; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.tx, e.ty); ctx.stroke();
+      ctx.setLineDash([14, 10]); ctx.lineDashOffset = -time*160; ctx.strokeStyle = rgb([255,120,90], .55 + .4*k); ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.tx, e.ty); ctx.stroke(); ctx.restore();
+      // a warning triangle where the path enters the screen
+      { const L = Math.hypot(e.tx - e.x, e.ty - e.y), ux = (e.tx - e.x)/L, uy = (e.ty - e.y)/L; let d = 0;
+        while (d < L && !inWorld(e.x + ux*d, e.y + uy*d, -26)) d += 12;
+        const wx = e.x + ux*d, wy = e.y + uy*d;
+        ctx.globalAlpha = 1; ctx.strokeStyle = rgb([255,90,60], .6 + .4*k); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(wx, wy - 14); ctx.lineTo(wx + 13, wy + 9); ctx.lineTo(wx - 13, wy + 9); ctx.closePath(); ctx.stroke();
+        ctx.fillStyle = rgb([255,200,180], .7 + .3*k); ctx.fillRect(wx - 1.3, wy - 6, 2.6, 8); ctx.fillRect(wx - 1.3, wy + 4, 2.6, 2.6);
+        sprite(wx, wy, 34, [255,60,40], .35*k); }
+      const rr = 14 + (1.1 - e.warnT)*10; ctx.globalAlpha = 1; ctx.strokeStyle = rgb([255,90,60], .5 + .4*k); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.tx, e.ty, rr, 0, TAU); ctx.stroke();
+      sprite(e.tx, e.ty, 30, [255,60,40], .3*k);
+      continue;
+    }
     if (e.T.comet){
       const sp = Math.hypot(e.vx, e.vy) || 1, dx = -e.vx/sp, dy = -e.vy/sp;
-      for (let i = 1; i <= 10; i++){ const t = i/10; sprite(e.x + dx*e.r*14*t, e.y + dy*e.r*14*t, e.r*(2.2 - t*1.5), [255,70,50], .4*(1 - t)); }
-      sprite(e.x, e.y, e.r*3.2, [255,110,70], .6);
+      for (let i = 1; i <= 14; i++){ const t = i/14; sprite(e.x + dx*e.r*20*t, e.y + dy*e.r*20*t, e.r*(2.6 - t*1.8), [255,70,40], .45*(1 - t)); }
+      for (let i = 1; i <= 6; i++){ const t = i/6; sprite(e.x + dx*e.r*7*t, e.y + dy*e.r*7*t, e.r*(1.2 - t*.8), [255,220,170], .5*(1 - t)); }
+      sprite(e.x, e.y, e.r*4, [255,110,70], .6); sprite(e.x, e.y, e.r*1.2, [255,255,230], .9);
     } else sprite(e.x, e.y, e.r*(e.T.boss ? 1.9 : 1.6), e.T.col, e.T.boss ? .22 : .14);
     if (isChilled(e)) sprite(e.x, e.y, e.r*1.5, [130,205,255], e.freezeT > 0 ? .5 : .28);
     if (e.burnT > 0) sprite(e.x + rand(-e.r, e.r)*.3, e.y - e.r*.3, e.r*(1.1 + Math.random()*.5), [255,120,40], .25 + e.burn*.06);
   }
   ctx.globalCompositeOperation = 'source-over';
   for (const e of enemies){
+    if (e.warnT > 0) continue;
     const s = rockSprite(e);
     if (e.type === 'hive') hiveTendrils(e);
     // organics breathe instead of tumbling

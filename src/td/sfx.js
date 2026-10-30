@@ -64,6 +64,8 @@ export const sfx = {
     if (k > 1.2) tone({ vol:.06*k, dur:.2 + k*.15, f0:110, f1:40 });
   },
   shield(heavy){ if (!ok('shield', .07)) return; tone({ vol:heavy ? .4 : .22, dur:heavy ? .6 : .3, f0:90, f1:38 }); burst({ vol:.12, dur:.25, type:'bandpass', f0:1400, f1:500, q:2 }); },
+  cometWarn(){ if (!ok('cwarn', .25)) return; tone({ vol:.07, dur:1.1, wave:'sawtooth', f0:220, f1:1300, a:.3 }); tone({ vol:.05, dur:1.1, wave:'sine', f0:440, f1:2200, a:.3 }); },
+  comet(){ if (!ok('comet', .15)) return; burst({ vol:.22, dur:.7, type:'bandpass', f0:2400, f1:250, q:1.5 }); tone({ vol:.14, dur:.6, wave:'sawtooth', f0:160, f1:50 }); },
   alarm(){ if (!ok('alarm', 1)) return; for (let i = 0; i < 3; i++){ tone({ vol:.09, dur:.18, wave:'sawtooth', f0:640, at:i*.36 }); tone({ vol:.09, dur:.16, wave:'sawtooth', f0:470, at:i*.36 + .18 }); } },
   core(){ if (!ok('core', .3)) return; [523, 659, 784, 1047].forEach((f, i) => tone({ vol:.1, dur:.35, f0:f, at:i*.07 })); },
   ore(){ if (ok('ore', .09)) tone({ vol:.03, dur:.08, f0:1500 + Math.random()*400 }); },

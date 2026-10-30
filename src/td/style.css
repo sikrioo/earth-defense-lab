@@ -169,3 +169,4 @@ button{ font:inherit; color:inherit; }
 /* danger vignette: flashes on shield hits, beats like a heart when the fortress is low */
 .vig{ position:fixed; inset:0; pointer-events:none; opacity:0; z-index:1; background:radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgba(255,40,40,.5) 100%); }
 #mute[aria-pressed="true"]{ color:var(--dim); text-decoration:line-through; border-color:var(--line); box-shadow:none; }
+.cx-sec{ margin:6px 0 0; font-family:var(--num); font-size:12px; letter-spacing:.14em; color:var(--dim); font-weight:600; }

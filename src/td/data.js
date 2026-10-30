@@ -7,7 +7,7 @@ export const ROCK = {
   splitter:{ ko:'분열 운석', desc:'부수면 파편 3개로 쪼개진다. 범위 무기로 한꺼번에.',  hp:62,    r:18, speed:44,  dmg:15,  energy:2,   col:[120,236,255], sides:8, split:3 },
   shard:   { ko:'파편', desc:'분열 운석에서 떨어져 나온 조각. 약하지만 빠르다.',       hp:14,    r:8,  speed:78,  dmg:5,   energy:.5,  col:[120,236,255], sides:5 },
   brute:   { ko:'철 운석', desc:'장갑을 두른 철 운석. 한 발에 3씩 피해를 덜 받는다 — 작은 탄이 약하다.',    hp:150,   r:25, speed:30,  dmg:30,  energy:4,   col:[200,206,230], sides:9, armor:3 },
-  comet:   { ko:'붉은 혜성', desc:'옆에서 비스듬히 날아드는 빠른 혜성. 직선으로만 움직인다.',  hp:40,    r:10, speed:250, dmg:25,  energy:3,   col:[255,84,60],   sides:6, comet:true },
+  comet:   { ko:'붉은 혜성', desc:'궤적 경고가 뜬 뒤 엄청난 속도로 돌진하는 혜성. 방어막에 부딪히면 크게 깎인다.',  hp:70,    r:14, speed:300, dmg:55,  energy:3,   col:[255,84,60],   sides:6, comet:true },
   elite:   { ko:'수정 운석', desc:'단단한 수정 운석. 장갑 4, 체력이 높고 처치하면 에너지가 많다.',  hp:520,   r:30, speed:26,  dmg:60,  energy:12,  col:[220,120,255], sides:6, armor:4, elite:true },
   spore:   { ko:'포자', desc:'꿈틀대며 다가오는 생체 포자. 불에 약하다.',       hp:22,    r:13, speed:74,  dmg:8,   energy:1,   col:[255,70,95],   organic:true, weave:34 },
   pod:     { ko:'기생 포드', desc:'기생 포드. 터지면 포자 3개가 쏟아진다. 불에 약하다.',  hp:95,    r:16, speed:40,  dmg:20,  energy:3,   col:[255,60,85],   organic:true, split:3, splitInto:'spore' },
@@ -90,13 +90,20 @@ export const TURRET = {
     cons:'재사용 대기 4초 · 펼쳐지기까지 0.6초 · 폭풍이 겹쳐도 피해는 안 겹침 · 빠른 적은 금방 빠져나감',
     base:{ dps:55, radius:105, dur:3.5, every:4, range:640, delay:.6, slow:0, drift:0 } },
   miner:   { ko:'채굴기', en:'MINER', col:[130,240,150], role:'자원 · 채굴', desc:'채굴 드론을 띄워 부서진 운석의 광석을 실어 온다',
-    pros:['광석을 빨리, 많이 모아서 카드를 더 자주 받음', '엘리트·보스의 에너지 코어를 먼저 챙겨 옴'],
+    pros:['빠르고 많이 실어 와서 카드를 더 자주 받음', '결정 광석·에너지 코어까지 운반 (요새 기본 드론은 일반 광석만)'],
     cons:'공격을 전혀 안 함: 발판 하나만큼 화력이 줄어듦 · 드론이 운석에 부딪히면 격추돼 4초 뒤 복귀',
-    base:{ drones:2, speed:340, scoop:44, trips:3, yield:.15, armor:0 } },
+    base:{ drones:2, speed:340, scoop:44, cap:10, yield:.15, armor:0, kinds:['ore', 'crystal', 'core'] } },
 };
 // ore: what a broken rock leaves behind. Only what the drones (or the shield's magnet) bring home becomes energy.
-export const ORE = { yieldMul:1.35, life:12, coreLife:30, magnet:46,
-  base:{ drones:2, speed:230, scoop:24, trips:1, yield:0 } };   // the fortress's own two slow drones
+// Three kinds: plain ore (every rock), crystal ore (armoured rocks, elites, bosses — worth more, only miner
+// drones can carry it) and energy cores (drift slowly toward Earth, so the magnet gets them in the end).
+export const ORE = { yieldMul:1.35, life:12, coreLife:45, magnet:46, coreDrift:24,
+  kinds:{
+    ore:     { ko:'일반 광석', col:[120,255,220], from:'모든 운석' },
+    crystal: { ko:'결정 광석', col:[200,150,255], from:'철 운석·수정 운석·보스', share:.5 },
+    core:    { ko:'에너지 코어', col:[255,220,140], from:'엘리트·보스' },
+  },
+  base:{ drones:2, speed:230, scoop:24, cap:3, yield:0, armor:0, kinds:['ore'] } };   // the fortress's own two slow drones
 // energy cores: dropped by elites (one common core) and bosses (a singularity core plus a common one).
 // Each turret has core slots: 1 to start, 2 after 4 upgrades, 3 after 8.
 export const CORES = {
@@ -193,6 +200,7 @@ export const UPG = {
   miner: [
     { id:'mn_drone',ko:'드론 증설',   d:'채굴 드론 +1',                   max:3, apply:s => { s.drones += 1; } },
     { id:'mn_speed',ko:'추진기',     d:'드론 속도 +25%',                  max:3, apply:s => { s.speed *= 1.25; } },
+    { id:'mn_cap',  ko:'적재함 확장', d:'한 번에 싣는 양 +50%',            max:3, apply:s => { s.cap *= 1.5; } },
     { id:'mn_scoop',ko:'광역 집게',   d:'한 번에 쓸어 담는 반경 +40%',      max:2, apply:s => { s.scoop *= 1.4; } },
     { id:'mn_yield',ko:'정제기',     d:'이 채굴기가 실어 온 광석 가치 +15%p', max:3, apply:s => { s.yield += .15; } },
     { id:'mn_armor',ko:'장갑 드론',   d:'운석에 부딪혀도 격추되지 않음',     max:1, apply:s => { s.armor = 1; } },

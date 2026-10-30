@@ -56,7 +56,7 @@ const along = (t, k) => ({ x:t.x + t.nx*k, y:t.y + t.ny*k });
 function target(t, range, skip, minRange = 0){
   let best = null, by = -1e9;
   for (const e of enemies){
-    if (!alive(e) || (skip && skip.has(e)) || !inWorld(e.x, e.y, e.r)) continue;
+    if (!alive(e) || (skip && skip.has(e)) || !inWorld(e.x, e.y, e.r) || e.warnT > 0) continue;
     const d = Math.hypot(e.x - t.x, e.y - t.y); if (d > range || d < minRange) continue;
     const th = threat(e); if (th > by){ by = th; best = e; }
   }
@@ -143,7 +143,7 @@ export function updTurrets(dt){
 function craftTarget(t, c, claimed){
   let best = null, bs = -1e9;
   for (const e of enemies){
-    if (!alive(e) || !inWorld(e.x, e.y, e.r)) continue;
+    if (!alive(e) || !inWorld(e.x, e.y, e.r) || e.warnT > 0) continue;
     const big = e.T.boss || e.T.elite;
     const sc = threat(e) - (claimed.has(e) ? 500 : 0) + (t.s.hunter && big ? 3000 : 0) - Math.hypot(e.x - c.x, e.y - c.y)*.6;
     if (sc > bs){ bs = sc; best = e; }
@@ -216,7 +216,7 @@ function updStorm(t, s, dt){
   if (t.cd > 0){ const e = target(t, s.range); if (e) aimAt(t, e, dt); return; }
   let best = null, bn = 0;
   for (const e of enemies){
-    if (!alive(e) || !inWorld(e.x, e.y, 0)) continue;
+    if (!alive(e) || !inWorld(e.x, e.y, 0) || e.warnT > 0) continue;
     if (Math.hypot(e.x - t.x, e.y - t.y) > s.range) continue;
     let n = 0; for (const o of enemies) if (alive(o) && Math.hypot(o.x - e.x, o.y - e.y) < s.radius) n += o.T.boss ? 4 : 1;
     n += threat(e)/2000;
@@ -354,7 +354,7 @@ function updDrones(t, dt){
     d.pulse = Math.max(0, d.pulse - dt*5); d.rot += (d.rotTo - d.rot)*Math.min(1, dt*18); d.re -= dt;
     if (!alive(d.tgt) || d.re <= 0){
       claimed.delete(d.tgt); d.re = .4; let best = null, by = -1e9;
-      for (const e of enemies){ if (!alive(e) || !inWorld(e.x, e.y, e.r)) continue; const score = threat(e) - (claimed.has(e) ? 400 : 0) - Math.hypot(e.x - d.x, e.y - d.y)*.3; if (score > by){ by = score; best = e; } }
+      for (const e of enemies){ if (!alive(e) || !inWorld(e.x, e.y, e.r) || e.warnT > 0) continue; const score = threat(e) - (claimed.has(e) ? 400 : 0) - Math.hypot(e.x - d.x, e.y - d.y)*.3; if (score > by){ by = score; best = e; } }
       d.tgt = best; if (best) claimed.add(best);
     }
     let gx = t.x + t.nx*120, gy = t.y + t.ny*120;
