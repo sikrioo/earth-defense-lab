@@ -147,3 +147,21 @@ button{ font:inherit; color:inherit; }
 .toast b{ color:#ff8aa0; font-weight:600; }
 .toast.show{ opacity:1; transform:translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce){ .toast{ transition:none; } }
+
+/* energy core dialog */
+.cd-core{ display:grid; grid-template-columns:64px 1fr; gap:12px; align-items:center; padding:10px 12px; border-radius:12px; border:1px solid color-mix(in srgb, var(--c) 50%, transparent); background:color-mix(in srgb, var(--c) 8%, #070b16); }
+.cd-core canvas{ width:64px; height:64px; }
+.cd-core div{ display:grid; gap:2px; }
+.cd-name{ font-size:18px; color:var(--c); font-weight:600; }
+.cd-desc{ font-size:14px; color:#e6f0ff; } .cd-store{ font-size:12px; color:var(--dim); }
+.cd-list{ display:grid; gap:6px; max-height:46vh; overflow:auto; overscroll-behavior:contain; }
+.cd-row{ appearance:none; display:grid; grid-template-columns:44px 1fr auto; gap:10px; align-items:center; text-align:left; padding:6px 10px; border-radius:10px; border:1px solid color-mix(in srgb, var(--t) 40%, transparent); background:#0a0f1c; color:inherit; cursor:pointer; font:inherit; }
+.cd-row:hover:not(:disabled){ box-shadow:0 0 0 1px var(--t), 0 0 16px color-mix(in srgb, var(--t) 35%, transparent); }
+.cd-row:disabled{ opacity:.45; cursor:default; }
+.cd-row canvas{ width:44px; height:44px; }
+.cd-row b{ color:var(--t); font-weight:600; } .cd-row small{ display:block; color:var(--dim); font-size:11px; }
+.cd-slots{ display:flex; gap:4px; } .cd-slots i{ width:12px; height:12px; border-radius:3px; border:1px solid rgba(200,220,255,.45); }
+.cd-slots i.on{ border-color:transparent; background:var(--k); box-shadow:0 0 8px var(--k); }
+.coredlg .cd-keep{ appearance:none; height:42px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.04); font-weight:600; cursor:pointer; color:inherit; font:inherit; }
+.cx-note{ display:grid; gap:6px; font-size:13px; color:#cfe0f5; padding:10px 12px; border-radius:12px; border:1px dashed rgba(120,255,220,.35); }
+.cx-note p{ margin:0; } .cx-note b{ color:#8fffe0; font-weight:600; margin-right:4px; }

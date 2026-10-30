@@ -89,7 +89,28 @@ export const TURRET = {
     pros:['폭풍 안의 모든 적에게 계속 피해', '몰려오는 길목을 막아둠'],
     cons:'재사용 대기 4초 · 펼쳐지기까지 0.6초 · 폭풍이 겹쳐도 피해는 안 겹침 · 빠른 적은 금방 빠져나감',
     base:{ dps:55, radius:105, dur:3.5, every:4, range:640, delay:.6, slow:0, drift:0 } },
+  miner:   { ko:'채굴기', en:'MINER', col:[130,240,150], role:'자원 · 채굴', desc:'채굴 드론을 띄워 부서진 운석의 광석을 실어 온다',
+    pros:['광석을 빨리, 많이 모아서 카드를 더 자주 받음', '엘리트·보스의 에너지 코어를 먼저 챙겨 옴'],
+    cons:'공격을 전혀 안 함: 발판 하나만큼 화력이 줄어듦 · 드론이 운석에 부딪히면 격추돼 4초 뒤 복귀',
+    base:{ drones:2, speed:340, scoop:44, trips:3, yield:.15, armor:0 } },
 };
+// ore: what a broken rock leaves behind. Only what the drones (or the shield's magnet) bring home becomes energy.
+export const ORE = { yieldMul:1.35, life:12, coreLife:30, magnet:46,
+  base:{ drones:2, speed:230, scoop:24, trips:1, yield:0 } };   // the fortress's own two slow drones
+// energy cores: dropped by elites (one common core) and bosses (a singularity core plus a common one).
+// Each turret has core slots: 1 to start, 2 after 4 upgrades, 3 after 8.
+export const CORES = {
+  power: { ko:'과충전 코어', en:'OVERCHARGE', col:[255,96,84],   d:'피해 +25%', ops:{ dmg:1.25 } },
+  speed: { ko:'가속 코어',   en:'ACCELERATOR', col:[255,206,90], d:'발사·충전·재사용 속도 +20%', ops:{ speed:1.2 } },
+  reach: { ko:'확장 코어',   en:'EXTENDER', col:[96,190,255],    d:'사거리·범위 +20%', ops:{ reach:1.2 } },
+  prime: { ko:'특이점 코어', en:'SINGULARITY', col:[220,140,255], d:'피해 +40% · 속도 +15%', ops:{ dmg:1.4, speed:1.15 }, boss:true },
+};
+export const CORE_KEYS = {
+  dmg:  { up:['dmg', 'dps', 'burn'], down:[] },
+  speed:{ up:['rate', 'speed'], down:['every', 'charge', 'recharge', 'cool', 'rearm'] },
+  reach:{ up:['range', 'radius', 'blast', 'hop', 'scoop'], down:[] },
+};
+export const slotsFor = lv => 1 + (lv >= 4 ? 1 : 0) + (lv >= 8 ? 1 : 0);
 
 // upgrade cards. apply(s) changes that turret's stats; key cards (max 1) are marked core
 export const UPG = {
@@ -169,6 +190,13 @@ export const UPG = {
     { id:'fk_ap',   ko:'철갑 파편',   d:'파편이 장갑을 무시',              max:1, apply:s => { s.ap = 1; } },
     { id:'fk_double',ko:'이중 신관', d:'터진 자리에서 한 번 더 터짐 (파편 절반)', max:1, apply:s => { s.double = 1; } },
   ],
+  miner: [
+    { id:'mn_drone',ko:'드론 증설',   d:'채굴 드론 +1',                   max:3, apply:s => { s.drones += 1; } },
+    { id:'mn_speed',ko:'추진기',     d:'드론 속도 +25%',                  max:3, apply:s => { s.speed *= 1.25; } },
+    { id:'mn_scoop',ko:'광역 집게',   d:'한 번에 쓸어 담는 반경 +40%',      max:2, apply:s => { s.scoop *= 1.4; } },
+    { id:'mn_yield',ko:'정제기',     d:'이 채굴기가 실어 온 광석 가치 +15%p', max:3, apply:s => { s.yield += .15; } },
+    { id:'mn_armor',ko:'장갑 드론',   d:'운석에 부딪혀도 격추되지 않음',     max:1, apply:s => { s.armor = 1; } },
+  ],
   storm: [
     { id:'st_dps',  ko:'과충전',     d:'폭풍 피해 +30%',                 max:5, apply:s => { s.dps *= 1.3; } },
     { id:'st_radius',ko:'광역 폭풍', d:'폭풍 반경 +25%',                 max:3, apply:s => { s.radius *= 1.25; } },
@@ -183,5 +211,6 @@ export const UPG = {
 export const FORT_UPG = [
   { id:'f_hp',     ko:'장갑 보강',   d:'요새 최대 체력 +20%, 체력 30% 회복', max:5 },
   { id:'f_regen',  ko:'자가 수리',   d:'초당 체력 +3 회복',               max:3 },
-  { id:'f_energy', ko:'에너지 효율', d:'에너지 획득 +20%',                max:3 },
+  { id:'f_energy', ko:'에너지 효율', d:'광석 가치 +20%',                  max:3 },
+  { id:'f_magnet', ko:'중력 자석',   d:'방어막 근처 광석을 끌어오는 범위 +60%', max:2 },
 ];

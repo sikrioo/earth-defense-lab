@@ -9,6 +9,7 @@ import { PW, V, angC, distC, inWorld, shieldAt } from './view.js';
 import { bigNumber, burst, explode, mixc, rgb } from './fx.js';
 import { hitFortress } from './fortress.js';
 import { discover } from './codex.js';
+import { dropLoot } from './mining.js';
 
 const SPR = 2;                       // sprite pixels per world unit
 const sprites = new Map();
@@ -55,7 +56,7 @@ export function chill(e, amt, t){
 
 function kill(e){
   e.dead = true; G.kills++; G.waveDone++;
-  G.energy += e.T.energy*G.energyMul;
+  dropLoot(e);
   explode(e.x, e.y, e.r*1.6, e.T.col);
   if (e.T.boss){ addShake(10); for (let i = 0; i < 4; i++) setTimeout(() => explode(e.x + rand(-e.r, e.r), e.y + rand(-e.r, e.r), e.r, e.T.col), i*120); }
   if (e.T.split) for (let i = 0; i < e.T.split; i++){
@@ -65,8 +66,6 @@ function kill(e){
     s.px = Math.cos(side)*(i - 1)*150 + Math.cos(a)*40; s.py = Math.sin(side)*(i - 1)*150 + Math.sin(a)*40;
     G.waveTotal++;
   }
-  // a few energy sparks drift to the bar
-  for (let i = 0; i < Math.min(4, Math.ceil(e.T.energy)); i++) emit({ x:e.x, y:e.y, vx:(V.cx - e.x)*rand(.6, 1), vy:(V.cy - e.y)*rand(.6, 1), drag:.2, life:1, s0:3, s1:1.2, pal:[[220,255,255],[90,230,255]] });
 }
 
 export function updRocks(dt){

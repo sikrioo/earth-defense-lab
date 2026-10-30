@@ -29,7 +29,7 @@ function roll(onlyNew){
   return out;
 }
 export function checkEnergy(){
-  if (G.picking || G.phase === 'over' || G.phase === 'win') return;
+  if (G.picking || G.coreOpen || G.phase === 'over' || G.phase === 'win') return;
   if (G.energy >= G.need){ G.energy -= G.need; G.picks++; G.need = needFor(G.picks); open(); }
 }
 export function open(onlyNew = false){
@@ -39,7 +39,7 @@ export function open(onlyNew = false){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'card';
     let col, tag, title, sub, desc, pips = '';
     if (o.kind === 'new'){ const T = TURRET[o.type]; col = T.col; tag = 'NEW TURRET'; title = T.ko; sub = `${T.en} · ${T.role}`; desc = `${T.desc}<span class="ccons">단점 · ${T.cons}</span>`; }
-    else if (o.kind === 'up'){ const T = o.t.T, n = o.t.lv[o.u.id] || 0; col = T.col; tag = o.u.max === 1 ? 'CORE' : 'UPGRADE'; title = o.u.ko; sub = T.ko; desc = o.u.d; pips = '◆'.repeat(n + 1) + '◇'.repeat(o.u.max - n - 1); }
+    else if (o.kind === 'up'){ const T = o.t.T, n = o.t.lv[o.u.id] || 0; col = T.col; tag = o.u.max === 1 ? 'KEY UPGRADE' : 'UPGRADE'; title = o.u.ko; sub = T.ko; desc = o.u.d; pips = '◆'.repeat(n + 1) + '◇'.repeat(o.u.max - n - 1); }
     else { const n = fortLv[o.f.id] || 0; col = [120,255,190]; tag = 'FORTRESS'; title = o.f.ko; sub = '요새'; desc = o.f.d; pips = '◆'.repeat(n + 1) + '◇'.repeat(o.f.max - n - 1); }
     b.style.setProperty('--c', `rgb(${col})`);
     if (o.kind === 'up' && o.u.max === 1) b.classList.add('core');
@@ -56,6 +56,7 @@ export function open(onlyNew = false){
 // test bot that plays like a focused player: a few turrets, stack their upgrades, take core cards
 export function smartPick(){
   const score = o => {
+    if (o.kind === 'new' && o.type === 'miner') return turrets.length >= 2 ? 3.6 : 1;
     if (o.kind === 'new') return turrets.length < 3 ? 4 : V.mode !== 'line' && turrets.length < V.mounts.length*.6 ? 3 : .6;
     if (o.kind === 'fort') return o.f.id === 'f_hp' && G.hp < G.hpMax*.5 ? 4 : o.f.id === 'f_energy' && G.picks < 8 ? 2.5 : .8;
     if (o.u.max === 1) return 5;
@@ -74,6 +75,7 @@ export function choose(i){
     if (o.f.id === 'f_hp'){ G.hpMax = Math.round(G.hpMax*1.2); G.hp = Math.min(G.hpMax, G.hp + G.hpMax*.3); }
     if (o.f.id === 'f_regen') G.regen += 3;
     if (o.f.id === 'f_energy') G.energyMul += .2;
+    if (o.f.id === 'f_magnet') G.magnet *= 1.6;
   }
   el.hidden = true; G.picking = false; options = [];
   checkEnergy();       // a big kill can fill the bar twice

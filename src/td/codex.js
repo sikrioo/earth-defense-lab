@@ -1,5 +1,6 @@
 /* ---------- fortress mode: the codex — every gun (strengths, trade-off, stats, cards) and every enemy met so far ---------- */
-import { ROCK, TURRET, UPG, WAVES } from './data.js';
+import { CORES, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
+import { coreIcon } from './mining.js';
 import { G } from './state.js';
 import { drawTurretIcon } from './turrets.js';
 import { drawRockIcon } from './enemies.js';
@@ -33,6 +34,7 @@ function statRows(type, s){
     case 'carrier': return [['피해', `${f1(s.dmg)} × 탄창 ${s.ammo}발`], ['인터셉터', `${s.craft}대`], ['재장전', `${f1(s.rearm)}초`], ['사거리', '화면 전체']];
     case 'flak':    return [['파편', `${f1(s.dmg)} × ${s.frags}개`], ['간격', `${f1(s.every)}초`], ['사거리', s.range], ['퍼짐', `${Math.round(s.spread*57)}°`]];
     case 'storm':   return [['초당 피해', f1(s.dps)], ['반경', Math.round(s.radius)], ['지속', `${f1(s.dur)}초`], ['재사용', `${f1(s.every)}초`]];
+    case 'miner':   return [['드론', `${s.drones}대`], ['속도', Math.round(s.speed)], ['쓸어 담기', `반경 ${Math.round(s.scoop)}`], ['정제', `광석 +${Math.round(s.yield*100)}%`]];
     case 'flame':   return [['초당 피해', f1(s.dps)], ['화상', `초당 ${s.burn} × 최대 ${s.stacks}중첩`], ['사거리', s.range], ['생체형', `+${Math.round(s.organic*100)}%`]];
   }
   return [];
@@ -62,6 +64,17 @@ function render(){
         <details><summary>강화 카드 ${UPG[k].length}종</summary><ul class="cx-ups">${UPG[k].map(u => `<li${u.max === 1 ? ' class="core"' : ''}><b>${u.ko}</b><span>${u.d}</span><em>${u.max === 1 ? '핵심' : '최대 ' + u.max}</em></li>`).join('')}</ul></details>
       </div>`;
       drawTurretIcon(a.querySelector('canvas'), k);
+      list.appendChild(a);
+    }
+  } else if (tab === 'cores'){
+    const head = document.createElement('div'); head.className = 'cx-note';
+    head.innerHTML = `<p><b>광석</b> 부서진 운석은 광석을 남기고, 요새로 실어 와야 에너지가 돼요. 요새의 기본 채굴 드론 ${ORE.base.drones}대는 느리고, <b>채굴기</b> 포탑의 드론은 빠르고 많이 담아요. 방어막 가까이 떠다니는 광석은 자석이 끌어와요. 광석은 ${ORE.life}초 지나면 타서 사라져요.</p>
+      <p><b>에너지 코어</b> 엘리트는 일반 코어 1개, 보스는 특이점 코어와 일반 코어를 떨궈요. 실어 오면 포탑의 코어 슬롯에 끼울 수 있어요. 슬롯은 처음 1개, 강화 4회에 2개, 8회에 3개. 한 번 끼우면 빼지 못해요.</p>`;
+    list.appendChild(head);
+    for (const k in CORES){
+      const C = CORES[k], a = document.createElement('article'); a.className = 'cx-item'; a.style.setProperty('--c', `rgb(${C.col})`);
+      a.innerHTML = `<canvas width="144" height="144" aria-hidden="true"></canvas><div class="cx-body"><div class="cx-top"><b>${C.ko}</b><span class="cx-en">${C.en}</span>${C.boss ? '<span class="cx-role">보스</span>' : '<span class="cx-role">엘리트·보스</span>'}</div><p class="cx-desc">${C.d}</p></div>`;
+      coreIcon(a.querySelector('canvas').getContext('2d'), k, 72, 72, 34);
       list.appendChild(a);
     }
   } else {

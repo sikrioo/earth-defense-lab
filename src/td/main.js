@@ -3,7 +3,7 @@ import './style.css';
 import { RS, cv, ctx, decayShake, rollShake, shX, shY, tickClock } from '../core/canvas.js';
 import { drawParts, parts, setMAXP, updParts } from '../core/particles.js';
 import { resetJag, tickBolts } from '../core/lightning.js';
-import { FORT, ROCK, TURRET, UPG, WAVES } from './data.js';
+import { CORES, FORT, ORE, ROCK, TURRET, UPG, WAVES } from './data.js';
 import { G, enemies, fx, shots } from './state.js';
 import { MODES, fitView, modeFor, startCamera, tickCamera, V } from './view.js';
 import { drawRocks, updRocks } from './enemies.js';
@@ -12,6 +12,8 @@ import { drawBackdrop, drawFortress, invalidateBackdrop, updFortress } from './f
 import { addTurret, drawTurrets, levelOf, placeTurrets, resetTurrets, turretAt, turrets, updShots, updTurrets } from './turrets.js';
 import { checkEnergy, choose, needFor, open as openPick, resetCards, smartPick } from './cards.js';
 import { openCodex } from './codex.js';
+import { drawMiners, drawOres, resetMining, sweepOres, updMining } from './mining.js';
+import { autoFitCores, openCoreDialog, resetCoreUi } from './coreui.js';
 
 // test hooks: ?auto=1 picks cards by itself, ?speed=4 runs faster, ?wave=12 starts later, ?view=full locks the view
 const QS = new URLSearchParams(location.search);
@@ -25,14 +27,15 @@ const hud = { wn:$('wn'), wfill:$('wfill'), hpfill:$('hpfill'), hpn:$('hpn'), en
 // the view (line → half → full) follows the wave unless the stage select locked one
 const wantView = () => G.viewLock || modeFor(G.wave || 1);
 function setView(mode, animate){
+  if (mode !== V.mode) sweepOres();       // floating ore is in the old view's coordinates: bank it
   const from = fitView(mode); placeTurrets(); invalidateBackdrop();
   if (animate){ startCamera(from); const M = MODES[mode]; G.banner = { title:`${M.en}`, sub:`시야 확장 · ${M.ko} 방어 · 포탑 자리 ${M.pads}개 · 새 포탑 1개`, warn:false }; G.bannerT = 2.6; G.bonusPick = true; }
 }
 // run setup: start = first wave, view = locked view or null for automatic, freePicks = cards handed out for skipped waves
 function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoPicks = !!AUTO){
-  enemies.length = 0; fx.length = 0; parts.length = 0; resetTurrets(); resetCards();
+  enemies.length = 0; fx.length = 0; parts.length = 0; resetTurrets(); resetCards(); resetMining(); resetCoreUi();
   Object.assign(G, { phase:'wave', wave:0, paused:false, picking:false, hp:FORT.hp, hpMax:FORT.hp, regen:0, hitT:0,
-    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, pickQueue:0, bonusPick:false });
+    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, pickQueue:0, bonusPick:false, cores:[], coreQueue:0, magnet:ORE.magnet });
   G.wave = start; setView(wantView(), false);
   addTurret('gatling');
   hud.over.hidden = true; hud.pausebox.hidden = true;
@@ -50,11 +53,14 @@ function update(dt){
   updRocks(dt);
   updTurrets(dt);
   updShots(dt);
+  updMining(dt);
   updFortress(dt);
   updParts(dt);
   for (let i = fx.length - 1; i >= 0; i--) if (!fx[i].update(dt)) fx.splice(i, 1);
   G.runTime += dt;
   checkEnergy();
+  // a core came home (or a turret opened a new slot while cores wait): offer it
+  if (G.coreQueue > 0 && !G.picking && !G.coreOpen){ G.coreQueue = 0; if (AUTO) autoFitCores(); else openCoreDialog(); }
   // a wider view comes with a free pick of new turrets for the new pads (once the zoom has settled)
   if (G.bonusPick && !G.picking && V.cam === 1){ G.bonusPick = false; openPick(true); }
   if (!G.picking && G.pickQueue > 0){ G.pickQueue--; G.picks++; G.need = needFor(G.picks); openPick(); }
@@ -75,7 +81,9 @@ function render(){
   ctx.globalCompositeOperation = 'lighter';
   drawFortress(turretAt);
   drawRocks();
+  drawOres();
   drawTurrets();
+  drawMiners();
   drawParts();
   for (const f of fx) f.draw();
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
@@ -104,7 +112,8 @@ function buildList(){
   if (!turrets.length) return '';
   return turrets.map(t => {
     const ups = UPG[t.type].filter(u => t.lv[u.id]).map(u => `${u.ko}${u.max > 1 ? ' ' + t.lv[u.id] : ''}`).join(' · ') || '강화 없음';
-    return `<li style="--c:rgb(${t.T.col})"><b>${t.T.ko}</b> <em>+${levelOf(t)}</em><span>${ups}</span></li>`;
+    const cores = t.cores.length ? `<span>코어 · ${t.cores.map(c => CORES[c].ko).join(' · ')}</span>` : '';
+    return `<li style="--c:rgb(${t.T.col})"><b>${t.T.ko}</b> <em>+${levelOf(t)}</em><span>${ups}</span>${cores}</li>`;
   }).join('');
 }
 function endRun(win){
@@ -117,7 +126,7 @@ function endRun(win){
 }
 function setPaused(p){
   G.paused = p; hud.pausebox.hidden = !p; hud.pause.setAttribute('aria-pressed', p);
-  if (p) hud.build.innerHTML = buildList() || '<li>포탑 없음</li>';
+  if (p){ hud.build.innerHTML = buildList() || '<li>포탑 없음</li>'; $('pcores').hidden = !G.cores.length; $('pcores').textContent = `보관 중인 코어 ${G.cores.length}개 끼우기`; }
 }
 
 hud.spd.addEventListener('click', () => { G.speed = G.speed === 1 ? 2 : 1; hud.spd.textContent = `×${G.speed}`; hud.spd.setAttribute('aria-pressed', G.speed > 1); });
@@ -140,8 +149,9 @@ $('stgo').addEventListener('click', () => {
 });
 $('codexbtn').addEventListener('click', () => openCodex());
 $('pcodex').addEventListener('click', () => openCodex());
+$('pcores').addEventListener('click', () => { setPaused(false); openCoreDialog(); });
 addEventListener('keydown', e => {
-  if (G.codexOpen) return;
+  if (G.codexOpen || G.coreOpen) return;
   if (e.key === 'Escape' || e.key === 'p') setPaused(!G.paused);
   if (e.key === 'c') openCodex();
   if (e.key === ' '){ e.preventDefault(); hud.spd.click(); }
@@ -153,7 +163,7 @@ function frame(now){
   requestAnimationFrame(frame);
   const dt = Math.max(0, Math.min(.033, (now - last)/1000)); last = now;   // the first rAF stamp can predate `last`
   resetJag();
-  const running = !G.paused && !G.picking && !G.codexOpen && (G.phase === 'wave' || G.phase === 'break');
+  const running = !G.paused && !G.picking && !G.coreOpen && !G.codexOpen && (G.phase === 'wave' || G.phase === 'break');
   if (running){
     const steps = TEST_SPEED || G.speed;
     for (let i = 0; i < steps; i++){ tickClock(dt); tickBolts(dt); update(dt); }

@@ -2,7 +2,7 @@
 import { RS, TAU, ctx, rand, setCtx, time } from '../core/canvas.js';
 import { emit, sprite, streak } from '../core/particles.js';
 import { boltWithForks } from '../core/lightning.js';
-import { TURRET } from './data.js';
+import { CORES, CORE_KEYS, TURRET, slotsFor } from './data.js';
 import { G, enemies, fx, shots } from './state.js';
 import { PW, V, distC, inWorld, threat } from './view.js';
 import { alive, chill, hitSpark, hurt, hurtArea, isChilled } from './enemies.js';
@@ -15,16 +15,31 @@ export function addTurret(type){
   const used = new Set(turrets.map(t => t.m)); const m = V.mounts.findIndex((_, i) => !used.has(i));
   if (m < 0) return null;
   const T = TURRET[type], p = V.mounts[m];
-  const t = { type, T, s:{ ...T.base }, lv:{}, m, cd:rand(0, .4), ang:p.a, ramp:0, rampOn:null, drones:[], born:time };
+  const t = { type, T, s:{ ...T.base }, lv:{}, cores:[], m, cd:rand(0, .4), ang:p.a, ramp:0, rampOn:null, drones:[], born:time };
   place(t); turrets.push(t); ringFx(p.x, p.y, 6, 60, .5, T.col, 3);
   return t;
 }
 export function applyUpgrade(t, up){
+  const before = slotsOf(t);
   up.apply(t.s); t.lv[up.id] = (t.lv[up.id] || 0) + 1;
+  // a new core slot opened: if cores are waiting in the store, offer them again
+  if (slotsOf(t) > before){ ringFx(t.x, t.y, 10, 80, .7, [255,255,255], 3); if (G.cores.length) G.coreQueue++; }
   G.shatter = Math.max(0, ...turrets.filter(x => x.type === 'cryo').map(x => x.s.shatter));
   ringFx(t.x, t.y, 6, 46, .45, t.T.col, 2);
 }
 export const levelOf = t => Object.values(t.lv).reduce((a, b) => a + b, 0);
+// energy cores: each turret has 1–3 slots (by how upgraded it is); a core scales its stats for good
+export const slotsOf = t => slotsFor(levelOf(t));
+export const coreUseful = (t, type) => Object.keys(CORES[type].ops).some(g => [...CORE_KEYS[g].up, ...CORE_KEYS[g].down].some(k => k in t.s && t.s[k] > 0));
+export function installCore(t, type){
+  if (t.cores.length >= slotsOf(t)) return false;
+  for (const [g, f] of Object.entries(CORES[type].ops)){
+    for (const k of CORE_KEYS[g].up) if (k in t.s) t.s[k] *= f;
+    for (const k of CORE_KEYS[g].down) if (k in t.s) t.s[k] /= f;
+  }
+  t.cores.push(type); ringFx(t.x, t.y, 6, 70, .6, CORES[type].col, 4);
+  return true;
+}
 // keep turret positions in step with the view (resizes move the platform)
 // each turret stands on its pad facing out from Earth: (nx, ny) is that outward direction, (px, py) the gun's pivot
 function place(t){
@@ -362,7 +377,7 @@ function updDrones(t, dt){
 /* ----- drawing: a pedestal on the pad, a metal gun head on a pivot that turns to the aim and kicks back ----- */
 const TS = 1.5;                                             // guns are drawn in a 1.5× local scale so they read on a phone
 export const PIVOT = 13*TS;                                 // pivot height above the pad point
-const BARREL = { gatling:34*TS, laser:40*TS, missile:20*TS, cryo:28*TS, tesla:0, drone:0, rail:46*TS, flame:26*TS, carrier:0, flak:30*TS, storm:24*TS };
+const BARREL = { miner:0, gatling:34*TS, laser:40*TS, missile:20*TS, cryo:28*TS, tesla:0, drone:0, rail:46*TS, flame:26*TS, carrier:0, flak:30*TS, storm:24*TS };
 let METAL = ['#4a5568', '#262d3b', '#11151e'];
 const METAL_ICON = ['#8d9ab3', '#4d586e', '#232a38'];       // brighter for card and codex art on dark panels
 function metal(build, x0, y0, x1, y1){
@@ -386,6 +401,17 @@ function paintBase(type, col){
     metal(() => { ctx.moveTo(-20, 8); ctx.lineTo(20, 8); ctx.lineTo(16, -4); ctx.arc(0, -4, 16, 0, Math.PI, true); ctx.closePath(); }, -20, -20, 20, 8);
     accent(() => { ctx.arc(0, -4, 11, Math.PI*1.1, Math.PI*1.9); }, col, 1.4, .9);
     metal(() => rr(-4, -24, 8, 6, 2), -4, -24, 4, -18);
+    return;
+  }
+  if (type === 'miner'){
+    // a squat refinery with a crane arm and a docking cradle for the drones
+    metal(() => { ctx.moveTo(-18, 8); ctx.lineTo(18, 8); ctx.lineTo(14, -12); ctx.lineTo(-14, -12); ctx.closePath(); }, -18, -12, 18, 8);
+    metal(() => rr(-12, -20, 14, 9, 2), -12, -20, 2, -11);
+    metal(() => { ctx.moveTo(4, -12); ctx.lineTo(7, -12); ctx.lineTo(14, -30); ctx.lineTo(11, -31); ctx.closePath(); }, 4, -31, 14, -12);
+    metal(() => rr(8, -34, 9, 5, 2), 8, -34, 17, -29);
+    accent(() => { ctx.moveTo(-10, -2); ctx.lineTo(10, -2); }, col, 1.2, .9);
+    accent(() => { ctx.moveTo(-9, -15.5); ctx.lineTo(-1, -15.5); }, col, 1, .8);
+    accent(() => { ctx.arc(12.5, -38, 4, Math.PI*.1, Math.PI*.9, true); }, col, 1, .7);
     return;
   }
   if (type === 'carrier'){
@@ -492,6 +518,12 @@ export function drawTurrets(){
     const lv = levelOf(t);
     if (lv){ const o = along(t, -21); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.font = '700 10px "Chakra Petch", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#05070c'; ctx.fillRect(o.x - 10, o.y - 6, 20, 12); ctx.fillStyle = rgb(t.T.col); ctx.fillText(`+${lv}`, o.x, o.y); ctx.globalCompositeOperation = 'lighter'; }
+    // core slots: filled with the core's colour, empty ones as outlines
+    { const n = slotsOf(t), o = along(t, -33 - (bar ? 9 : 0)); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      for (let i = 0; i < n; i++){ const x = o.x + (i - (n - 1)/2)*9 - 3, y = o.y - 3, c = t.cores[i];
+        ctx.fillStyle = '#05070c'; ctx.fillRect(x - 1, y - 1, 8, 8);
+        if (c){ ctx.fillStyle = rgb(CORES[c].col); ctx.fillRect(x, y, 6, 6); } else { ctx.strokeStyle = 'rgba(200,220,255,.45)'; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, 5, 5); } }
+      ctx.globalCompositeOperation = 'lighter'; }
     if (t.type === 'laser' && t.beams) t.beams.forEach((e, i) => {
       const m = muzzle(t), w = i ? 1.6 : 1.2 + (t.mult || 1)*1.1;
       neonLine(m.x, m.y, e.x, e.y, t.T.col, w, .9); sprite(e.x, e.y, 10 + w*3, t.T.col, .7);
