@@ -4,6 +4,8 @@ import { emit, sprite, streak } from '../core/particles.js';
 import { boltWithForks } from '../core/lightning.js';
 import { CORES, CORE_KEYS, TURRET, slotsFor } from './data.js';
 import { G, enemies, fx, shots } from './state.js';
+import { sfx } from './sfx.js';
+import { addShake } from '../core/lights.js';
 import { PW, V, distC, inWorld, threat } from './view.js';
 import { alive, chill, hitSpark, hurt, hurtArea, isChilled } from './enemies.js';
 import { burst, explode, mixc, neonCircle, neonLine, neonPath, rgb, ringFx } from './fx.js';
@@ -72,7 +74,7 @@ export function updTurrets(dt){
       if (t.over > 0){ t.over -= dt; if (t.over <= 0) t.heat = 0; if (Math.random() < dt*25){ const m = muzzle(t); emit({ x:m.x, y:m.y, vx:rand(-15, 15), vy:rand(-50, -25), drag:1, life:.7, s0:3, s1:9, a:.3, pal:[[200,210,220],[120,130,150]] }); } continue; }
       const e = target(t, s.range); if (!e){ t.heat = Math.max(0, t.heat - 30*dt); continue; } aimAt(t, e, dt);
       if (t.cd <= 0){
-        t.cd = 1/s.rate; t.kick = .7;
+        t.cd = 1/s.rate; t.kick = .7; sfx.gun();
         t.heat += s.heatPer; if (t.heat >= 100){ t.heat = 100; t.over = s.cool; }
         // lead the target: where it will be when a bullet gets there
         const m0 = muzzle(t), d0 = Math.hypot(e.x - m0.x, e.y - m0.y)/1100;
@@ -96,12 +98,12 @@ export function updTurrets(dt){
       if (t.bat <= 0){ t.bat = 0; t.charging = true; t.ramp = 0; t.rampOn = null; }
       if (t.rampOn !== t.beams[0]){ t.rampOn = t.beams[0]; t.ramp = 0; }
       t.ramp += dt; t.mult = 1 + (s.rampMax - 1)*Math.min(1, t.ramp/s.ramp);
-      t.beams.forEach((e, i) => hurt(e, s.dps*(i ? 1 : t.mult)*dt, { chillBonus:s.melt }));
+      t.beams.forEach((e, i) => hurt(e, s.dps*(i ? 1 : t.mult)*dt, { chillBonus:s.melt })); sfx.laser();
       if (Math.random() < dt*20){ const e = t.beams[0]; hitSpark(e.x + rand(-4, 4), e.y + rand(-4, 4), t.T.col); }
     } else if (t.type === 'missile'){
       const e = target(t, s.range, null, s.minRange); if (!e) continue; aimAt(t, e, dt);
       if (t.cd <= 0){
-        t.cd = s.every; t.kick = 1;
+        t.cd = s.every; t.kick = 1; sfx.missile(); if (s.count >= 4) addShake(1.2);
         for (let i = 0; i < s.count; i++){
           const off = i - (s.count - 1)/2, a = t.a + off*.32, o = along(t, PIVOT + 10);
           shots.push({ k:'missile', x:o.x - t.ny*off*4, y:o.y + t.nx*off*4, vx:Math.cos(a)*240, vy:Math.sin(a)*240, tgt:e, dmg:s.dmg, blast:s.blast, cluster:s.cluster, life:3, delay:i*.05, col:t.T.col });
@@ -110,13 +112,13 @@ export function updTurrets(dt){
     } else if (t.type === 'cryo'){
       const e = target(t, s.range); if (!e) continue; aimAt(t, e, dt);
       if (t.cd <= 0){
-        t.cd = s.every; t.kick = 1; const m = muzzle(t);
+        t.cd = s.every; t.kick = 1; sfx.frost(); const m = muzzle(t);
         const lead = .45, tx = e.x + (e.vx || 0)*lead, ty = e.y + (e.vy || 0)*lead;
         shots.push({ k:'frost', x:m.x, y:m.y, sx:m.x, sy:m.y, tx, ty, t:0, dur:lead, s:{ ...s }, col:t.T.col });
       }
     } else if (t.type === 'tesla'){
       const e = target(t, s.range); if (!e || t.cd > 0) continue;
-      t.cd = s.every;
+      t.cd = s.every; sfx.zap();
       const o = along(t, 34*TS), pts = [[o.x, o.y]], seen = new Set(); let cur = e;
       for (let j = 0; j <= s.jumps && cur; j++){
         seen.add(cur); pts.push([cur.x, cur.y]);
@@ -172,7 +174,7 @@ function updCarrier(t, s, dt){
       c.cd -= dt;
       let da = Math.atan2(dy, dx) - c.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
       if (d < 280 && Math.abs(da) < .8 && c.cd <= 0){
-        c.cd = s.every; c.ammo--;
+        c.cd = s.every; c.ammo--; sfx.craft();
         const lead = d/1000, a = Math.atan2(e.y + (e.vx !== undefined ? e.vy : 0)*lead - c.y, e.x + (e.vx || 0)*lead - c.x) + rand(-.03, .03);
         shots.push({ k:'bullet', x:c.x, y:c.y, vx:Math.cos(a)*1000, vy:Math.sin(a)*1000, dmg:s.dmg, hunt:s.hunter, pierce:0, hit:new Set(), life:.4, col:t.T.col, small:true });
       }
@@ -205,7 +207,7 @@ function flakBurst(x, y, ang, n, s, col){
     const a = ang + (i/(n - 1 || 1) - .5)*s.spread + rand(-.05, .05), v = rand(620, 760);
     shots.push({ k:'bullet', x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, dmg:s.dmg, ap:s.ap, pierce:0, hit:new Set(), life:.3, col, frag:true });
   }
-  sprite(x, y, 30, [255,255,230], .9); sprite(x, y, 60, col, .45);
+  sprite(x, y, 30, [255,255,230], .9); sprite(x, y, 60, col, .45); sfx.flak();
   ringFx(x, y, 4, 40, .25, col, 2);
 }
 
@@ -222,7 +224,7 @@ function updStorm(t, s, dt){
   }
   if (!best) return;
   aimAt(t, best, dt);
-  t.cd = s.every; t.kick = 1;
+  t.cd = s.every; t.kick = 1; sfx.storm();
   const lead = s.delay + .4, m = muzzle(t);
   let x = best.x + (best.vx || 0)*lead, y = best.y + (best.vy || 0)*lead;
   // never over the shield itself: hold the storm just outside it
@@ -239,7 +241,7 @@ function updRail(t, s, dt){
   t.chg = (t.chg || 0) + dt/s.charge;
   if (t.chg < s.lockAt){ aimAt(t, e, dt); t.locked = false; } else t.locked = true;
   if (t.chg < 1) return;
-  t.chg = 0; t.locked = false; t.kick = 1;
+  t.chg = 0; t.locked = false; t.kick = 1; sfx.rail(); addShake(3);
   const m = muzzle(t), dx = Math.cos(t.ang), dy = Math.sin(t.ang), L = 3200, ex = m.x + dx*L, ey = m.y + dy*L;
   for (const o of enemies){
     if (!alive(o)) continue;
@@ -255,7 +257,7 @@ function updRail(t, s, dt){
 /* ----- flamethrower: a short cone that burns; burns stack and tick on their own ----- */
 function updFlame(t, s, dt){
   const e = target(t, s.range); t.firing = false; if (!e) return;
-  aimAt(t, e, dt); t.firing = true;
+  aimAt(t, e, dt); t.firing = true; sfx.flame();
   const m = muzzle(t);
   for (const o of enemies){
     if (!alive(o)) continue;
@@ -369,7 +371,7 @@ function updDrones(t, dt){
     if (d.t >= s.every && !d.moving){
       d.t -= s.every; d.rotTo += TAU/6;
       const n = hurtArea(d.x, d.y, s.radius, s.dmg);
-      if (n){ d.pulse = 1; sprite(d.x, d.y, s.radius*.9, [255,255,255], .5); emit({ x:d.x + s.radius*.6, y:d.y, vx:rand(80, 140), vy:rand(-220, -160), ay:700, life:.6, s0:2.2, s1:2, pal:[[232,163,61]] }); }
+      if (n){ d.pulse = 1; sfx.gun(); sprite(d.x, d.y, s.radius*.9, [255,255,255], .5); emit({ x:d.x + s.radius*.6, y:d.y, vx:rand(80, 140), vy:rand(-220, -160), ay:700, life:.6, s0:2.2, s1:2, pal:[[232,163,61]] }); }
     }
   }
 }

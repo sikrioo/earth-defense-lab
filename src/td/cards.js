@@ -2,6 +2,7 @@
 import { ENERGY, FORT_UPG, TURRET, UPG } from './data.js';
 import { G } from './state.js';
 import { V } from './view.js';
+import { sfx } from './sfx.js';
 import { addTurret, applyUpgrade, drawTurretIcon, turrets } from './turrets.js';
 
 const el = document.getElementById('pick'), row = el.querySelector('.pk-row');
@@ -34,7 +35,7 @@ export function checkEnergy(){
 }
 export function open(onlyNew = false){
   options = roll(onlyNew); if (!options.length) return false;
-  G.picking = true; row.innerHTML = '';
+  G.picking = true; row.innerHTML = ''; sfx.card();
   options.forEach((o, i) => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'card';
     let col, tag, title, sub, desc, pips = '';
@@ -68,6 +69,7 @@ export function smartPick(){
 }
 export function choose(i){
   const o = options[i]; if (!o || !G.picking) return;
+  sfx.pick();
   if (o.kind === 'new') addTurret(o.type);
   else if (o.kind === 'up') applyUpgrade(o.t, o.u);
   else {

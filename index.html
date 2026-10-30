@@ -12,11 +12,13 @@
 <body>
 <canvas id="c" aria-label="지구 방어 전장. 포탑이 자동으로 운석을 요격합니다."></canvas>
 
+<div class="vig" id="vig" aria-hidden="true"></div>
 <div class="col">
   <header class="top">
     <div class="wave" aria-live="polite"><span class="wl">WAVE</span><b id="wn">1</b><span class="wt">/ 30</span></div>
     <div class="wbar" aria-hidden="true"><i id="wfill"></i></div>
     <div class="tbtns">
+      <button type="button" id="mute" aria-pressed="false" aria-label="소리 끄기">♪</button>
       <button type="button" id="codexbtn" aria-label="도감">도감</button>
       <button type="button" id="spd" aria-pressed="false" aria-label="게임 속도">×1</button>
       <button type="button" id="pausebtn" aria-pressed="false" aria-label="일시정지">II</button>

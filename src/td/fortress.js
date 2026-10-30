@@ -4,7 +4,8 @@ import { addShake } from '../core/lights.js';
 import { sprite } from '../core/particles.js';
 import { srng } from '../core/util.js';
 import capUrl from '../../assets/cap.webp';
-import { G } from './state.js';
+import { G, enemies } from './state.js';
+import { sfx } from './sfx.js';
 import { PW, V, angC, shieldAt } from './view.js';
 import { explode, neonPath, rgb } from './fx.js';
 
@@ -18,13 +19,19 @@ export function hitFortress(e){
   G.hp = Math.max(0, G.hp - dmg); G.hitT = 1;
   const a = angC(e.x, e.y), p = shieldAt(a);
   explode(p.x, p.y, e.r*1.8 + 20, [255,110,70]);
-  hits.push({ a, t:0 });
+  // a crack across the shield where it was hit: a few jagged lines out from the impact
+  const cr = [], n = 3 + Math.min(4, dmg/15 | 0);
+  for (let i = 0; i < n; i++){ let x = p.x, y = p.y; const seg = [[x, y]], dir = a + Math.PI/2*(i % 2 ? 1 : -1) + (Math.random() - .5)*1.2;
+    for (let j = 0; j < 4; j++){ const d = 6 + Math.random()*10, b = dir + (Math.random() - .5)*.9; x += Math.cos(b)*d; y += Math.sin(b)*d; seg.push([x, y]); } cr.push(seg); }
+  hits.push({ a, t:0, cr, life:e.T.boss ? 1.4 : .9 });
   addShake(e.T.boss ? 14 : 2 + Math.min(6, dmg/12));
+  sfx.shield(e.T.boss || dmg > 40);
+  if (e.T.boss) G.hitStop = Math.max(G.hitStop || 0, .12);
 }
 export function updFortress(dt){
   if (G.regen && G.hp > 0) G.hp = Math.min(G.hpMax, G.hp + G.regen*dt);
   G.hitT = Math.max(0, G.hitT - dt*2);
-  for (let i = hits.length - 1; i >= 0; i--){ hits[i].t += dt; if (hits[i].t > .6) hits.splice(i, 1); }
+  for (let i = hits.length - 1; i >= 0; i--){ hits[i].t += dt; if (hits[i].t > hits[i].life) hits.splice(i, 1); }
 }
 
 // the arc of the shield / platform ring that matters in each view
@@ -138,7 +145,19 @@ export function drawFortress(turretAt){
   // shield: faint, flaring where it was hit
   ctx.globalCompositeOperation = 'lighter';
   neonPath(() => ctx.arc(V.cx, V.cy, V.SR, a0, a1), CYAN, 1.5, .35 + .1*Math.sin(time*2.4) + G.hitT*.4);
-  for (const h of hits){ const k = 1 - h.t/.6, p = shieldAt(h.a); sprite(p.x, p.y, 60*(1 + h.t), [255,140,90], .6*k); sprite(p.x, p.y, 120, CYAN, .25*k); }
+  for (const h of hits){
+    const k = Math.max(0, 1 - h.t/.6), kc = 1 - h.t/h.life, p = shieldAt(h.a);
+    if (k > 0){ sprite(p.x, p.y, 60*(1 + h.t), [255,140,90], .6*k); sprite(p.x, p.y, 120, CYAN, .25*k); }
+    neonPath(() => { for (const seg of h.cr){ ctx.moveTo(seg[0][0], seg[0][1]); for (let j = 1; j < seg.length; j++) ctx.lineTo(seg[j][0], seg[j][1]); } }, [255,200,170], 1, kc*(.6 + .4*Math.sin(h.t*40)));
+  }
+  // danger: the stretch of shield a rock is about to hit glows red, brighter the closer it is
+  const warn = 200*V.spd;
+  for (const e of enemies){
+    if (e.dead) continue;
+    const gap = Math.hypot(e.x - V.cx, e.y - V.cy) - V.SR; if (gap > warn) continue;
+    const k = 1 - Math.max(0, gap)/warn, q = shieldAt(Math.atan2(e.y - V.cy, e.x - V.cx));
+    sprite(q.x, q.y, 26 + e.r*1.2 + k*20, [255,60,50], (.12 + .4*k*k)*(e.T.boss ? 1.5 : 1));
+  }
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.drawImage(platLayer, -V.ox, 0, W, H);
   ctx.globalCompositeOperation = 'lighter';
   const n = V.mode === 'line' ? 14 : V.mode === 'half' ? 20 : 30, span = a1 - a0;

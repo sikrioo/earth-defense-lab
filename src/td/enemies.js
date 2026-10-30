@@ -10,6 +10,7 @@ import { bigNumber, burst, explode, mixc, rgb } from './fx.js';
 import { hitFortress } from './fortress.js';
 import { discover } from './codex.js';
 import { dropLoot } from './mining.js';
+import { sfx } from './sfx.js';
 
 const SPR = 2;                       // sprite pixels per world unit
 const sprites = new Map();
@@ -40,6 +41,12 @@ export function hurt(e, dmg, opts = {}){
   if (e.T.organic && opts.organicBonus) d *= 1 + opts.organicBonus;
   if (e.T.armor && !opts.pierceArmor) d = Math.max(d*.25, d - e.T.armor);
   e.hp -= d; e.flash = .1;
+  // a shove away from Earth: small rocks get knocked back, big ones barely, bosses and comets not at all
+  if (!e.T.boss && !e.T.comet && d > 0){
+    const dc = Math.hypot(e.x - V.cx, e.y - V.cy) || 1, kb = Math.min(40, d*1.3)*14/Math.max(12, e.r);
+    e.px += (e.x - V.cx)/dc*kb; e.py += (e.y - V.cy)/dc*kb;
+    const m = Math.hypot(e.px, e.py); if (m > 90){ e.px *= 90/m; e.py *= 90/m; }
+  }
   if (d >= 60 || opts.crit) bigNumber(e.x + rand(-6, 6), e.y - e.r - 6, d, opts.crit ? [255,230,120] : e.T.col);
   if (e.hp <= 0) kill(e);
   return d;
@@ -58,6 +65,12 @@ function kill(e){
   e.dead = true; G.kills++; G.waveDone++;
   dropLoot(e);
   explode(e.x, e.y, e.r*1.6, e.T.col);
+  // chunks of rock fly off; big kills stop the clock for a beat
+  const n = e.T.boss ? 36 : Math.round(3 + e.r/3), hot = mixc(e.T.col, [255,255,255], .35);
+  for (let i = 0; i < n; i++){ const a = rand(0, TAU), v = rand(60, 220)*(e.T.boss ? 1.8 : 1); emit({ x:e.x, y:e.y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, drag:1.4, life:rand(.45, 1), s0:rand(2, 4.5), s1:.8, pal:[hot, e.T.col, [70,60,60]] }); }
+  sfx.boom(e.r/14 + (e.T.elite ? 1 : 0) + (e.T.boss ? 3 : 0));
+  if (e.T.elite){ G.hitStop = Math.max(G.hitStop || 0, .06); addShake(4); }
+  if (e.T.boss) G.hitStop = Math.max(G.hitStop || 0, .3);
   if (e.T.boss){ addShake(10); for (let i = 0; i < 4; i++) setTimeout(() => explode(e.x + rand(-e.r, e.r), e.y + rand(-e.r, e.r), e.r, e.T.col), i*120); }
   if (e.T.split) for (let i = 0; i < e.T.split; i++){
     // fragments burst sideways (relative to the way the rock was falling) and pick spots nearby on the shield

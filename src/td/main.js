@@ -14,6 +14,7 @@ import { checkEnergy, choose, needFor, open as openPick, resetCards, smartPick }
 import { openCodex } from './codex.js';
 import { drawMiners, drawOres, resetMining, sweepOres, updMining } from './mining.js';
 import { autoFitCores, openCoreDialog, resetCoreUi } from './coreui.js';
+import { isMuted, setMuted, sfx } from './sfx.js';
 
 // test hooks: ?auto=1 picks cards by itself, ?speed=4 runs faster, ?wave=12 starts later, ?view=full locks the view
 const QS = new URLSearchParams(location.search);
@@ -22,20 +23,20 @@ const QS_VIEW = ['line', 'half', 'full'].includes(QS.get('view')) ? QS.get('view
 
 const $ = id => document.getElementById(id);
 const hud = { wn:$('wn'), wfill:$('wfill'), hpfill:$('hpfill'), hpn:$('hpn'), enfill:$('enfill'), boss:$('boss'), bossName:$('bossname'), bfill:$('bfill'),
-  banner:$('banner'), spd:$('spd'), pause:$('pausebtn'), pausebox:$('pausebox'), build:$('build'), over:$('over') };
+  banner:$('banner'), vig:$('vig'), spd:$('spd'), pause:$('pausebtn'), pausebox:$('pausebox'), build:$('build'), over:$('over') };
 
 // the view (line → half → full) follows the wave unless the stage select locked one
 const wantView = () => G.viewLock || modeFor(G.wave || 1);
 function setView(mode, animate){
   if (mode !== V.mode) sweepOres();       // floating ore is in the old view's coordinates: bank it
   const from = fitView(mode); placeTurrets(); invalidateBackdrop();
-  if (animate){ startCamera(from); const M = MODES[mode]; G.banner = { title:`${M.en}`, sub:`시야 확장 · ${M.ko} 방어 · 포탑 자리 ${M.pads}개 · 새 포탑 1개`, warn:false }; G.bannerT = 2.6; G.bonusPick = true; }
+  if (animate){ startCamera(from); sfx.view(); const M = MODES[mode]; G.banner = { title:`${M.en}`, sub:`시야 확장 · ${M.ko} 방어 · 포탑 자리 ${M.pads}개 · 새 포탑 1개`, warn:false }; G.bannerT = 2.6; G.bonusPick = true; }
 }
 // run setup: start = first wave, view = locked view or null for automatic, freePicks = cards handed out for skipped waves
 function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoPicks = !!AUTO){
   enemies.length = 0; fx.length = 0; parts.length = 0; resetTurrets(); resetCards(); resetMining(); resetCoreUi();
   Object.assign(G, { phase:'wave', wave:0, paused:false, picking:false, hp:FORT.hp, hpMax:FORT.hp, regen:0, hitT:0,
-    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, pickQueue:0, bonusPick:false, cores:[], coreQueue:0, magnet:ORE.magnet });
+    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, hitStop:0, pickQueue:0, bonusPick:false, cores:[], coreQueue:0, magnet:ORE.magnet });
   G.wave = start; setView(wantView(), false);
   addTurret('gatling');
   hud.over.hidden = true; hud.pausebox.hidden = true;
@@ -92,6 +93,14 @@ function render(){
 let shown = {};
 function drawHud(){
   const set = (k, v, f) => { if (shown[k] !== v){ shown[k] = v; f(v); } };
+  // vignette: a red flash when the shield is hit, a heartbeat below 30% fortress
+  let vig = G.hitT*.55;
+  if (G.hp > 0 && G.hp < G.hpMax*.3 && G.phase === 'wave'){
+    const ph = (G.runTime % 1.1)/1.1, beat = Math.exp(-ph*12) + (ph > .2 ? .7*Math.exp(-(ph - .2)*12) : 0);
+    vig = Math.max(vig, .25 + .45*beat*(1 - G.hp/(G.hpMax*.3))*.8 + .1);
+    if (ph < .08 && !G.paused && !G.picking) sfx.heart();
+  }
+  set('vig', Math.round(vig*50), v => hud.vig.style.opacity = v/50);
   set('wn', G.wave, v => hud.wn.textContent = v);
   set('wf', Math.round((G.waveTotal ? G.waveDone/G.waveTotal : 0)*100), v => hud.wfill.style.width = v + '%');
   set('hp', Math.ceil(G.hp), v => { hud.hpn.textContent = v; hud.hpfill.style.width = (v/G.hpMax*100) + '%'; });
@@ -148,12 +157,16 @@ $('stgo').addEventListener('click', () => {
   newRun(stage.wave, stage.view || null, stage.cards !== 'none', stage.cards === 'auto');
 });
 $('codexbtn').addEventListener('click', () => openCodex());
+const muteBtn = $('mute');
+const showMute = () => { muteBtn.setAttribute('aria-pressed', isMuted()); muteBtn.setAttribute('aria-label', isMuted() ? '소리 켜기' : '소리 끄기'); };
+muteBtn.addEventListener('click', () => { setMuted(!isMuted()); showMute(); }); showMute();
 $('pcodex').addEventListener('click', () => openCodex());
 $('pcores').addEventListener('click', () => { setPaused(false); openCoreDialog(); });
 addEventListener('keydown', e => {
   if (G.codexOpen || G.coreOpen) return;
   if (e.key === 'Escape' || e.key === 'p') setPaused(!G.paused);
   if (e.key === 'c') openCodex();
+  if (e.key === 'm') muteBtn.click();
   if (e.key === ' '){ e.preventDefault(); hud.spd.click(); }
 });
 addEventListener('resize', () => setView(V.mode, false));
@@ -164,7 +177,8 @@ function frame(now){
   const dt = Math.max(0, Math.min(.033, (now - last)/1000)); last = now;   // the first rAF stamp can predate `last`
   resetJag();
   const running = !G.paused && !G.picking && !G.coreOpen && !G.codexOpen && (G.phase === 'wave' || G.phase === 'break');
-  if (running){
+  if (running && G.hitStop > 0){ G.hitStop -= dt; tickClock(dt*.1); }      // a beat of stillness on big kills and hits
+  else if (running){
     const steps = TEST_SPEED || G.speed;
     for (let i = 0; i < steps; i++){ tickClock(dt); tickBolts(dt); update(dt); }
   } else { for (let i = fx.length - 1; i >= 0; i--) if (!fx[i].update(0)) fx.splice(i, 1); }

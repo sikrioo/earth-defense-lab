@@ -2,7 +2,8 @@
 import { rand } from '../core/canvas.js';
 import { ROCK, WAVES } from './data.js';
 import { G, enemies } from './state.js';
-import { spawnPoint } from './view.js';
+import { pickDir, spawnPoint } from './view.js';
+import { sfx } from './sfx.js';
 import { alive, spawnRock } from './enemies.js';
 
 function pickWeighted(list){
@@ -13,13 +14,23 @@ function pickWeighted(list){
 export function startWave(n){
   G.wave = n; G.phase = 'wave';
   const count = WAVES.count(n), win = WAVES.window(n), mix = WAVES.mix(n).filter(([, w]) => w > 0);
-  // rocks spread over the window, a little front-loaded; specials arrive a third of the way in
-  G.queue = Array.from({ length:count }, (_, i) => ({ t:win*Math.pow(i/count, 1.15) + rand(0, .4), type:pickWeighted(mix) }));
+  // rocks come in volleys of a few from one direction, with breathing room between volleys;
+  // from wave 3 a quarter of the wave is held back for one big surge (with a warning) past the middle
+  const surgeN = n >= 3 ? Math.round(count*.25) : 0, mainN = count - surgeN, volleys = [];
+  for (let i = 0; i < mainN;){ const k = Math.min(mainN - i, 2 + ((Math.random()*(2 + n/8))|0)); volleys.push(k); i += k; }
+  G.queue = [];
+  volleys.forEach((k, v) => {
+    const t0 = win*.85*Math.pow(v/volleys.length, 1.1) + rand(0, .5), dir = pickDir();
+    for (let j = 0; j < k; j++) G.queue.push({ t:t0 + j*rand(.12, .3), type:pickWeighted(mix), dir });
+  });
+  G.surgeAt = surgeN ? win*.62 : 0; G.surgeWarned = false;
+  if (surgeN){ const dirs = [pickDir(), pickDir()]; for (let j = 0; j < surgeN; j++) G.queue.push({ t:G.surgeAt + rand(0, 2.4), type:pickWeighted(mix), dir:dirs[j % 2] }); }
   WAVES.extra(n).forEach((type, i) => G.queue.push({ t:win*.3 + i*6, type }));
   G.queue.sort((a, b) => a.t - b.t);
   G.spawnT = 0; G.waveTotal = G.queue.length; G.waveDone = 0;
   const boss = WAVES.extra(n).find(t => ROCK[t].boss);
   banner(boss ? 'BOSS WAVE' : `WAVE ${n}`, boss ? `${ROCK[boss].ko} 접근` : `${count}개 접근`, !!boss);
+  if (boss) sfx.alarm();
 }
 export function banner(title, sub, warn = false){ G.banner = { title, sub, warn }; G.bannerT = 2.2; }
 
@@ -32,8 +43,9 @@ export function updWaves(dt){
   }
   if (G.phase !== 'wave') return;
   G.spawnT += dt;
+  if (G.surgeAt && !G.surgeWarned && G.spawnT >= G.surgeAt - 1.6){ G.surgeWarned = true; banner('METEOR SURGE', '운석 떼가 몰려와요', true); sfx.alarm(); }
   while (G.queue.length && G.queue[0].t <= G.spawnT){
-    const { type } = G.queue.shift(), p = spawnPoint(ROCK[type]);
+    const { type, dir } = G.queue.shift(), p = spawnPoint(ROCK[type], dir);
     spawnRock(type, p.x, p.y, { aim:p.aim });
   }
   if (!G.queue.length && !enemies.some(alive)){

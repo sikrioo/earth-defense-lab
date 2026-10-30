@@ -74,17 +74,27 @@ export const shieldAt = a => ({ x:V.cx + Math.cos(a)*V.SR, y:V.cy + Math.sin(a)*
 // how close to the shield something is (bigger = more urgent)
 export const threat = e => V.SR - distC(e.x, e.y);
 // where a new rock appears, and the arc of the shield it heads for
-export function spawnPoint(T){
+// a direction for a group of rocks: x fraction across the column (line) or an angle (half/full)
+export function pickDir(){
+  if (V.mode === 'line') return { u:.1 + Math.random()*.8 };
+  const pick = () => V.mode === 'half' ? -Math.PI + Math.random()*Math.PI : Math.random()*Math.PI*2;
+  let a = pick();
+  for (let i = 0; i < 16; i++){ const room = Math.max(0, edgeDist(a) - V.SR)/V.room; if (Math.random() < room*room) break; a = pick(); }
+  return { a };
+}
+export function spawnPoint(T, dir){
   if (V.mode === 'line'){
     if (T.comet){ const x = Math.random() < .5 ? -30 : PW + 30, y = 40 + Math.random()*220; return { x, y, aim:-Math.PI/2 + (Math.random() - .5)*.6 }; }
-    const x = T.boss ? PW/2 : T.r + Math.random()*(PW - T.r*2);
+    const u = dir && dir.u !== undefined ? Math.max(0, Math.min(1, dir.u + (Math.random() - .5)*.3)) : Math.random();
+    const x = T.boss ? PW/2 : T.r + u*(PW - T.r*2);
     return { x, y:-T.r - Math.random()*40, aim:angC(x, V.cy - V.SR) + (Math.random() - .5)*.25 };
   }
   // half: anywhere over the top half; full: anywhere around — but weighted toward the directions with
   // more room to cross, so a phone's narrow sides don't throw rocks straight onto the shield
   const pick = () => V.mode === 'half' ? -Math.PI + Math.random()*Math.PI : Math.random()*Math.PI*2;
-  let a = pick();
-  for (let i = 0; i < 16; i++){ const room = Math.max(0, edgeDist(a) - V.SR)/V.room; if (Math.random() < room*room) break; a = pick(); }
+  let a;
+  if (dir && dir.a !== undefined && !T.boss){ a = dir.a + (Math.random() - .5)*.7; if (V.mode === 'half') a = Math.max(-Math.PI + .05, Math.min(-.05, a)); }
+  else { a = pick(); for (let i = 0; i < 16; i++){ const room = Math.max(0, edgeDist(a) - V.SR)/V.room; if (Math.random() < room*room) break; a = pick(); } }
   const r = edgeDist(a) + 30 + T.r;
   return { x:V.cx + Math.cos(a)*r, y:V.cy + Math.sin(a)*r, aim:a + (Math.random() - .5)*(T.comet ? 1.2 : .5) };
 }

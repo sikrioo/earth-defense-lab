@@ -9,6 +9,7 @@ import { G, enemies } from './state.js';
 import { V, distC } from './view.js';
 import { neonCircle, neonPath, rgb, ringFx } from './fx.js';
 import { turrets } from './turrets.js';
+import { sfx } from './sfx.js';
 
 export const ores = [];
 export const miners = [];
@@ -31,7 +32,8 @@ export function dropLoot(e){
 
 // bring something home: ore → energy, cores → the store (and offer to fit them)
 function deposit(x, y, energy, cores){
-  if (energy > 0){ G.energy += energy*G.energyMul; sprite(x, y, 14, ORE_COL, .8); }
+  if (energy > 0){ G.energy += energy*G.energyMul; sprite(x, y, 14, ORE_COL, .8); sfx.ore(); }
+  if (cores.length) sfx.core();
   for (const c of cores){ G.cores.push(c); G.coreQueue++; ringFx(x, y, 6, 50, .5, CORES[c].col, 3); }
 }
 // the view changed: whatever is still floating is swept in
