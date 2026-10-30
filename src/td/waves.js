@@ -2,7 +2,7 @@
 import { rand } from '../core/canvas.js';
 import { ROCK, WAVES } from './data.js';
 import { G, enemies } from './state.js';
-import { PW } from './view.js';
+import { spawnPoint } from './view.js';
 import { alive, spawnRock } from './enemies.js';
 
 function pickWeighted(list){
@@ -33,9 +33,8 @@ export function updWaves(dt){
   if (G.phase !== 'wave') return;
   G.spawnT += dt;
   while (G.queue.length && G.queue[0].t <= G.spawnT){
-    const { type } = G.queue.shift(), T = ROCK[type];
-    const x = T.comet ? (Math.random() < .5 ? -30 : PW + 30) : T.boss ? PW/2 : rand(T.r, PW - T.r);
-    spawnRock(type, x, T.comet ? rand(40, 260) : -T.r - rand(0, 40));
+    const { type } = G.queue.shift(), p = spawnPoint(ROCK[type]);
+    spawnRock(type, p.x, p.y, { aim:p.aim });
   }
   if (!G.queue.length && !enemies.some(alive)){
     if (G.wave >= WAVES.last){ G.phase = 'win'; return; }

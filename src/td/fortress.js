@@ -5,20 +5,20 @@ import { sprite } from '../core/particles.js';
 import { srng } from '../core/util.js';
 import capUrl from '../../assets/cap.webp';
 import { G } from './state.js';
-import { PW, V, shieldY } from './view.js';
+import { PW, V, angC, shieldAt } from './view.js';
 import { explode, neonPath, rgb } from './fx.js';
 
 const CYAN = [90,230,255];
 const cap = new Image(); cap.src = capUrl; cap.onload = () => { backdrop = null; };
 let backdrop = null, hits = [];
-export const invalidateBackdrop = () => { backdrop = null; shieldLayer = null; };
+export const invalidateBackdrop = () => { backdrop = null; platLayer = null; };
 
 export function hitFortress(e){
   const dmg = Math.round(e.T.dmg*(1 + (G.wave - 1)*.05));
   G.hp = Math.max(0, G.hp - dmg); G.hitT = 1;
-  const y = shieldY(e.x);
-  explode(e.x, y, e.r*1.8 + 20, [255,110,70]);
-  hits.push({ x:e.x, t:0 });
+  const a = angC(e.x, e.y), p = shieldAt(a);
+  explode(p.x, p.y, e.r*1.8 + 20, [255,110,70]);
+  hits.push({ a, t:0 });
   addShake(e.T.boss ? 14 : 2 + Math.min(6, dmg/12));
 }
 export function updFortress(dt){
@@ -27,26 +27,79 @@ export function updFortress(dt){
   for (let i = hits.length - 1; i >= 0; i--){ hits[i].t += dt; if (hits[i].t > .6) hits.splice(i, 1); }
 }
 
-// sky, nebulae and Earth never move: baked once per size into one screen canvas
+// the arc of the shield / platform ring that matters in each view
+function ringArc(){
+  if (V.mode === 'line'){ const h = Math.asin(Math.min(1, (PW/2 + 40)/V.PR)); return [-Math.PI/2 - h, -Math.PI/2 + h]; }
+  if (V.mode === 'half') return [-Math.PI - .12, .12];
+  return [0, TAU];
+}
+
+// a living Earth for the pulled-back views (the horizon photo only works as a cap)
+function paintGlobe(g, cx, cy, R){
+  const atm = g.createRadialGradient(cx, cy, R*.96, cx, cy, R*1.16);
+  atm.addColorStop(0, 'rgba(90,200,255,.55)'); atm.addColorStop(1, 'rgba(90,200,255,0)');
+  g.fillStyle = atm; g.beginPath(); g.arc(cx, cy, R*1.16, 0, TAU); g.fill();
+  const sea = g.createRadialGradient(cx - R*.3, cy - R*.35, R*.1, cx, cy, R);
+  sea.addColorStop(0, '#2c6fb8'); sea.addColorStop(1, '#0d2a55');
+  g.fillStyle = sea; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
+  g.save(); g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.clip();
+  const rnd = srng(2026);
+  // continents: clusters of blobs, foreshortened toward the rim
+  for (let k = 0; k < 7; k++){
+    const a = rnd()*TAU, d = Math.sqrt(rnd())*R*.85, bx = cx + Math.cos(a)*d, by = cy + Math.sin(a)*d, squash = 1 - (d/R)*.5;
+    g.fillStyle = rnd() < .75 ? '#3f7a52' : '#8a7a52';
+    for (let j = 0; j < 9; j++){ const r = R*(.05 + rnd()*.11); g.beginPath(); g.ellipse(bx + (rnd() - .5)*R*.35, by + (rnd() - .5)*R*.28, r, r*squash, a, 0, TAU); g.fill(); }
+  }
+  g.fillStyle = 'rgba(235,245,255,.85)'; g.beginPath(); g.ellipse(cx, cy - R*.97, R*.4, R*.09, 0, 0, TAU); g.fill(); g.beginPath(); g.ellipse(cx, cy + R*.97, R*.35, R*.08, 0, 0, TAU); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.2)';
+  for (let i = 0; i < 16; i++){ const y = cy + (rnd() - .5)*R*1.8; g.beginPath(); g.ellipse(cx + (rnd() - .5)*R*1.6, y, R*(.1 + rnd()*.25), R*.025 + 1.5, (rnd() - .5)*.3, 0, TAU); g.fill(); }
+  // night side
+  const sh = g.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
+  sh.addColorStop(0, 'rgba(0,0,10,0)'); sh.addColorStop(.55, 'rgba(0,0,10,.1)'); sh.addColorStop(1, 'rgba(0,0,14,.7)');
+  g.fillStyle = sh; g.fillRect(cx - R, cy - R, R*2, R*2);
+  g.restore();
+  g.strokeStyle = 'rgba(150,230,255,.8)'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, R - 1, 0, TAU); g.stroke();
+}
+// what is left of Jupiter and Saturn, far off in the pulled-back views
+function husk(g, x, y, R, ringed){
+  if (ringed){ g.save(); g.translate(x, y); g.rotate(-.35); g.strokeStyle = 'rgba(130,120,110,.28)'; g.lineWidth = R*.14;
+    for (const [a0, a1] of [[.2, 1.3], [1.7, 2.5], [2.8, 3.9], [4.4, 5.9]]){ g.beginPath(); g.ellipse(0, 0, R*1.9, R*.5, 0, a0, a1); g.stroke(); } g.restore(); }
+  const gr = g.createRadialGradient(x - R*.35, y - R*.35, R*.1, x, y, R);
+  gr.addColorStop(0, 'rgba(96,88,80,.75)'); gr.addColorStop(1, 'rgba(26,22,22,.75)');
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y, R, 0, TAU); g.fill();
+  g.strokeStyle = 'rgba(255,110,60,.3)'; g.lineWidth = 1.2; const rnd = srng(ringed ? 7 : 3); g.beginPath();
+  for (let k = 0; k < 4; k++){ let px = x + (rnd() - .5)*R, py = y + (rnd() - .5)*R; g.moveTo(px, py); for (let j = 0; j < 4; j++){ px += (rnd() - .5)*R*.5; py += (rnd() - .5)*R*.5; g.lineTo(px, py); } }
+  g.stroke();
+}
+
+// sky, nebulae and Earth never move: baked once per size and view into one screen canvas
 function bake(){
   const c = document.createElement('canvas'); c.width = Math.ceil(W*RS); c.height = Math.ceil(H*RS);
   const g = c.getContext('2d'); g.scale(RS, RS); g.translate(V.ox, 0);
-  const x0 = -V.ox, x1 = PW + V.ox;
+  const x0 = -V.ox, x1 = PW + V.ox, line = V.mode === 'line';
   const sky = g.createLinearGradient(0, 0, 0, V.PH);
-  sky.addColorStop(0, '#04050c'); sky.addColorStop(.6, '#070a1a'); sky.addColorStop(1, '#0b1630');
+  if (line){ sky.addColorStop(0, '#04050c'); sky.addColorStop(.6, '#070a1a'); sky.addColorStop(1, '#0b1630'); }
+  else { sky.addColorStop(0, '#04050c'); sky.addColorStop(.5, '#060818'); sky.addColorStop(1, '#05060f'); }
   g.fillStyle = sky; g.fillRect(x0, 0, x1 - x0, V.PH);
   const blob = (x, y, r, c, a) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, rgb(c, a)); gr.addColorStop(1, rgb(c, 0)); g.fillStyle = gr; g.fillRect(x - r, y - r, r*2, r*2); };
-  blob(PW*.85, V.PH*.18, 360, [120,60,200], .16); blob(PW*.1, V.PH*.42, 300, [40,140,220], .12); blob(PW*.6, V.PH*.62, 260, [200,60,140], .07);
-  const rnd = srng(91);
-  for (let i = 0; i < 160; i++){ g.fillStyle = `rgba(220,235,255,${.12 + rnd()*.35})`; g.fillRect(x0 + rnd()*(x1 - x0), rnd()*V.earthTop, 1, 1); }
-  // Earth: the baked horizon cap (globe radius 1500 in its pixels), plus an atmosphere rim
-  const cx = PW/2, R = V.earthR, cy = V.earthTop + R;
-  const atm = g.createRadialGradient(cx, cy, R*.98, cx, cy, R + 60);
-  atm.addColorStop(0, 'rgba(90,200,255,.55)'); atm.addColorStop(1, 'rgba(90,200,255,0)');
-  g.fillStyle = atm; g.beginPath(); g.arc(cx, cy, R + 60, 0, TAU); g.fill();
-  if (cap.complete && cap.naturalWidth){ const sc = R/1500; g.drawImage(cap, cx - cap.naturalWidth*sc/2, V.earthTop, cap.naturalWidth*sc, cap.naturalHeight*sc); }
-  else { g.fillStyle = '#123a6a'; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill(); }
-  g.fillStyle = 'rgba(4,8,20,.35)'; g.fillRect(x0, V.earthTop, x1 - x0, V.PH - V.earthTop);
+  const k = PW/540;
+  blob(PW*.85, V.PH*.18, 360*k, [120,60,200], .16); blob(PW*.1, V.PH*.42, 300*k, [40,140,220], .12); blob(PW*.6, V.PH*.62, 260*k, [200,60,140], .07);
+  const rnd = srng(91), starH = line ? V.earthTop : V.PH;
+  for (let i = 0; i < 160*k*k; i++){ g.fillStyle = `rgba(220,235,255,${.12 + rnd()*.35})`; g.fillRect(x0 + rnd()*(x1 - x0), rnd()*starH, 1, 1); }
+  const R = V.ER, cx = V.cx, cy = V.cy;
+  if (line){
+    // Earth: the baked horizon cap (globe radius 1500 in its pixels), plus an atmosphere rim
+    const atm = g.createRadialGradient(cx, cy, R*.98, cx, cy, R + 60);
+    atm.addColorStop(0, 'rgba(90,200,255,.55)'); atm.addColorStop(1, 'rgba(90,200,255,0)');
+    g.fillStyle = atm; g.beginPath(); g.arc(cx, cy, R + 60, 0, TAU); g.fill();
+    if (cap.complete && cap.naturalWidth){ const sc = R/1500; g.drawImage(cap, cx - cap.naturalWidth*sc/2, V.earthTop, cap.naturalWidth*sc, cap.naturalHeight*sc); }
+    else { g.fillStyle = '#123a6a'; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill(); }
+    g.fillStyle = 'rgba(4,8,20,.35)'; g.fillRect(x0, V.earthTop, x1 - x0, V.PH - V.earthTop);
+  } else {
+    if (V.mode === 'full'){ husk(g, PW*.12, V.PH*.1, 46, false); husk(g, PW*.86, V.PH*.88, 38, true); }
+    else husk(g, PW*.1, V.PH*.12, 40, false);
+    paintGlobe(g, cx, cy, R);
+  }
   // outside the play column (wide screens): dim it and mark the edges
   if (V.ox > 1){
     g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(x0, 0, -x0, V.PH); g.fillRect(PW, 0, V.ox, V.PH);
@@ -61,59 +114,59 @@ export function drawBackdrop(){
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   ctx.drawImage(backdrop, -V.ox, 0, W, H);
   ctx.globalCompositeOperation = 'lighter';
-  const span = PW + V.ox*2;
+  const span = PW + V.ox*2, line = V.mode === 'line', lim = line ? V.earthTop : V.PH, ER2 = (V.ER + 30)**2;
   for (const s of STARS){
-    const sp = [6, 14, 30][s.l]*V.spd, y = ((s.y*V.earthTop + time*sp) % V.earthTop);
+    const sp = [6, 14, 30][s.l]*V.spd, y = ((s.y*lim + time*sp) % lim), x = -V.ox + s.x*span;
+    if (!line && (x - V.cx)**2 + (y - V.cy)**2 < ER2) continue;
     ctx.globalAlpha = [.25, .45, .8][s.l]; ctx.fillStyle = '#cfe6ff';
-    const z = s.l === 2 ? 1.6 : 1; ctx.fillRect(-V.ox + s.x*span, y, z, s.l === 2 ? z*3 : z);
+    const z = s.l === 2 ? 1.6 : 1; ctx.fillRect(x, y, z, s.l === 2 ? z*3 : z);
   }
 }
 
-const curve = x => Math.pow((x/PW - .5)*2, 2)*16;
-// the shield line and the platform with its pads are drawn once into offscreen canvases and blitted;
-// only the hit flares, the running lights and the shield's pulse are live
-let shieldLayer = null, platLayer = null, platKey = '';
-function offscreen(y0, h, paint){
-  const c = document.createElement('canvas'); c.width = Math.ceil((PW + 40)*RS); c.height = Math.ceil(h*RS);
-  const g = c.getContext('2d'), keep = ctx; g.setTransform(RS, 0, 0, RS, 20*RS, -y0*RS);
-  setCtx(g); paint(); setCtx(keep);
-  return { c, y0, h };
-}
-const blit = L => ctx.drawImage(L.c, -20, L.y0, PW + 40, L.h);
+// the platform ring with its pads is drawn once into a screen-sized canvas and blitted;
+// the shield (one arc), the hit flares and the running lights are live
+let platLayer = null, platKey = '';
 export function drawFortress(turretAt){
-  const key = V.mounts.map((m, i) => { const t = turretAt(i); return t ? t.type : '-'; }).join() + V.PH + RS;
-  if (!shieldLayer || platKey !== key){
-    shieldLayer = offscreen(V.defY - 20, 80, () => { ctx.globalCompositeOperation = 'lighter';
-      neonPath(() => { for (let x = 0; x <= PW; x += 12) x ? ctx.lineTo(x, shieldY(x)) : ctx.moveTo(x, shieldY(x)); }, CYAN, 1.5, 1); });
-    platLayer = offscreen(V.platY - 40, 80, () => paintPlatform(turretAt));
-    platKey = key;
+  const key = V.mounts.map((m, i) => { const t = turretAt(i); return t ? t.type : '-'; }).join() + V.mode + V.PH + RS;
+  if (!platLayer || platKey !== key){
+    const c = document.createElement('canvas'); c.width = Math.ceil(W*RS); c.height = Math.ceil(H*RS);
+    const g = c.getContext('2d'), keep = ctx; g.setTransform(RS, 0, 0, RS, V.ox*RS, 0);
+    setCtx(g); paintPlatform(turretAt); setCtx(keep);
+    platLayer = c; platKey = key;
   }
+  const [a0, a1] = ringArc();
   // shield: faint, flaring where it was hit
-  ctx.globalAlpha = .35 + .1*Math.sin(time*2.4) + G.hitT*.4; blit(shieldLayer);
-  for (const h of hits){ const k = 1 - h.t/.6; sprite(h.x, shieldY(h.x), 60*(1 + h.t), [255,140,90], .6*k); sprite(h.x, shieldY(h.x), 120, CYAN, .25*k); }
-  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; blit(platLayer);
   ctx.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 14; i++){ const x = PW*(i + .5)/14, on = (Math.floor(time*2) + i) % 4 === 0; sprite(x, V.platY + 6 + curve(x), on ? 5 : 3, on ? CYAN : [60,120,160], on ? .9 : .5); }
+  neonPath(() => ctx.arc(V.cx, V.cy, V.SR, a0, a1), CYAN, 1.5, .35 + .1*Math.sin(time*2.4) + G.hitT*.4);
+  for (const h of hits){ const k = 1 - h.t/.6, p = shieldAt(h.a); sprite(p.x, p.y, 60*(1 + h.t), [255,140,90], .6*k); sprite(p.x, p.y, 120, CYAN, .25*k); }
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.drawImage(platLayer, -V.ox, 0, W, H);
+  ctx.globalCompositeOperation = 'lighter';
+  const n = V.mode === 'line' ? 14 : V.mode === 'half' ? 20 : 30, span = a1 - a0;
+  for (let i = 0; i < n; i++){
+    const a = a0 + span*(i + .5)/n, on = (Math.floor(time*2) + i) % 4 === 0;
+    sprite(V.cx + Math.cos(a)*V.PR, V.cy + Math.sin(a)*V.PR, on ? 5 : 3, on ? CYAN : [60,120,160], on ? .9 : .5);
+  }
 }
 function paintPlatform(turretAt){
+  const [a0, a1] = ringArc(), full = V.mode === 'full', rIn = V.PR - 16, rOut = V.PR + 12;
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   ctx.beginPath();
-  for (let x = -12; x <= PW + 12; x += 12) ctx.lineTo(x, V.platY - 12 + curve(x));
-  for (let x = PW + 12; x >= -12; x -= 12) ctx.lineTo(x, V.platY + 16 + curve(x));
-  ctx.closePath();
-  const band = ctx.createLinearGradient(0, V.platY - 12, 0, V.platY + 16);
-  band.addColorStop(0, '#2b3446'); band.addColorStop(.5, '#141a26'); band.addColorStop(1, '#0a0d14');
-  ctx.fillStyle = band; ctx.fill();
+  if (full){ ctx.arc(V.cx, V.cy, rOut, 0, TAU); ctx.moveTo(V.cx + rIn, V.cy); ctx.arc(V.cx, V.cy, rIn, 0, TAU, true); }
+  else { ctx.arc(V.cx, V.cy, rOut, a0, a1); ctx.arc(V.cx, V.cy, rIn, a1, a0, true); ctx.closePath(); }
+  const band = ctx.createRadialGradient(V.cx, V.cy, rIn, V.cx, V.cy, rOut);
+  band.addColorStop(0, '#0a0d14'); band.addColorStop(.5, '#141a26'); band.addColorStop(1, '#2b3446');
+  ctx.fillStyle = band; ctx.fill('evenodd');
   ctx.globalCompositeOperation = 'lighter';
-  neonPath(() => { for (let x = -12; x <= PW + 12; x += 12) x > -12 ? ctx.lineTo(x, V.platY - 12 + curve(x)) : ctx.moveTo(x, V.platY - 12 + curve(x)); }, CYAN, 1.2, .8);
+  neonPath(() => ctx.arc(V.cx, V.cy, rOut, a0, a1), CYAN, 1.2, .8);
+  if (!full) neonPath(() => ctx.arc(V.cx, V.cy, rIn, a0, a1), CYAN, .8, .3);
   V.mounts.forEach((m, i) => {
     const t = turretAt(i), c = t ? t.T.col : [70,90,120];
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#0e121b';
-    hex(m.x, m.y, 27); ctx.fill();
+    hex(m.x, m.y, 27, m.a); ctx.fill();
     ctx.globalCompositeOperation = 'lighter';
-    neonPath(() => hex(m.x, m.y, 27), c, 1.3, t ? .9 : .45);
+    neonPath(() => hex(m.x, m.y, 27, m.a), c, 1.3, t ? .9 : .45);
     if (!t){ ctx.globalAlpha = .4; ctx.fillStyle = rgb(c); ctx.fillRect(m.x - 5, m.y - .75, 10, 1.5); ctx.fillRect(m.x - .75, m.y - 5, 1.5, 10); }
   });
 }
-function hex(x, y, r){ ctx.beginPath(); for (let i = 0; i < 6; i++){ const a = i/6*TAU + Math.PI/6; ctx.lineTo(x + Math.cos(a)*r, y + Math.sin(a)*r*.8); } ctx.closePath(); }
-
+// a pad: a hexagon, flat side facing out from Earth
+function hex(x, y, r, a){ ctx.beginPath(); for (let i = 0; i < 6; i++){ const b = a + i/6*TAU + Math.PI/6; ctx.lineTo(x + Math.cos(b)*r, y + Math.sin(b)*r); } ctx.closePath(); }

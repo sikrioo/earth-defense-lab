@@ -1,6 +1,7 @@
 /* ---------- fortress mode: energy → pick one of three cards (new turret, turret upgrade, fortress) ---------- */
-import { ENERGY, FORT, FORT_UPG, TURRET, UPG } from './data.js';
+import { ENERGY, FORT_UPG, TURRET, UPG } from './data.js';
 import { G } from './state.js';
+import { V } from './view.js';
 import { addTurret, applyUpgrade, drawTurretIcon, turrets } from './turrets.js';
 
 const el = document.getElementById('pick'), row = el.querySelector('.pk-row');
@@ -12,14 +13,14 @@ export function resetCards(){ for (const k in fortLv) delete fortLv[k]; options 
 function pool(){
   const out = [];
   const owned = new Set(turrets.map(t => t.type));
-  if (turrets.length < FORT.mounts)
+  if (turrets.length < V.mounts.length)
     for (const k in TURRET) if (!owned.has(k)) out.push({ kind:'new', type:k, w:turrets.length < 3 ? 2.2 : 1 });
   for (const t of turrets) for (const u of UPG[t.type]) if ((t.lv[u.id] || 0) < u.max) out.push({ kind:'up', t, u, w:u.max === 1 ? .7 : 1.2 });
   for (const f of FORT_UPG) if ((fortLv[f.id] || 0) < f.max) out.push({ kind:'fort', f, w:.45 });
   return out;
 }
-function roll(){
-  const p = pool(), out = [];
+function roll(onlyNew){
+  const p = pool().filter(o => !onlyNew || o.kind === 'new'), out = [];
   while (out.length < 3 && p.length){
     const tot = p.reduce((a, o) => a + o.w, 0); let r = Math.random()*tot, i = 0;
     for (; i < p.length - 1; i++) if ((r -= p[i].w) <= 0) break;
@@ -31,8 +32,8 @@ export function checkEnergy(){
   if (G.picking || G.phase === 'over' || G.phase === 'win') return;
   if (G.energy >= G.need){ G.energy -= G.need; G.picks++; G.need = needFor(G.picks); open(); }
 }
-export function open(){
-  options = roll(); if (!options.length) return;
+export function open(onlyNew = false){
+  options = roll(onlyNew); if (!options.length) return false;
   G.picking = true; row.innerHTML = '';
   options.forEach((o, i) => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'card';
@@ -49,17 +50,17 @@ export function open(){
     b.addEventListener('click', () => choose(i));
     row.appendChild(b);
   });
-  el.hidden = false; el.querySelector('.pk-title').textContent = G.picks === 1 ? 'FIRST UPGRADE' : 'ENERGY FULL';
+  el.hidden = false; el.querySelector('.pk-title').textContent = onlyNew ? 'NEW PADS ONLINE' : G.picks === 1 ? 'FIRST UPGRADE' : 'ENERGY FULL';
   row.firstChild.focus({ preventScroll:true });
 }
 // test bot that plays like a focused player: a few turrets, stack their upgrades, take core cards
 export function smartPick(){
   const score = o => {
-    if (o.kind === 'new') return turrets.length < 3 ? 4 : .6;
+    if (o.kind === 'new') return turrets.length < 3 ? 4 : V.mode !== 'line' && turrets.length < V.mounts.length*.6 ? 3 : .6;
     if (o.kind === 'fort') return o.f.id === 'f_hp' && G.hp < G.hpMax*.5 ? 4 : o.f.id === 'f_energy' && G.picks < 8 ? 2.5 : .8;
     if (o.u.max === 1) return 5;
     const lv = Object.values(o.t.lv).reduce((a, b) => a + b, 0);
-    return 2.5 + lv*.4 + (/dmg|dps|rate|count|chain|twin|split|drone/.test(o.u.id) ? 1 : 0);
+    return 2.5 + lv*.4 + (/dmg|dps|rate|count|chain|twin|split|drone|craft|frags/.test(o.u.id) ? 1 : 0);
   };
   let best = 0; options.forEach((o, i) => { if (score(o) > score(options[best])) best = i; });
   return best;

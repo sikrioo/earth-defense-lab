@@ -77,6 +77,18 @@ export const TURRET = {
     pros:['부채꼴로 여럿을 동시에, 화상 피해가 쌓임', '생체형(포자·포드·생체 행성)에 피해 +60%'],
     cons:'사거리가 아주 짧음(요새 코앞) · 작은 피해를 자주 줘서 장갑에 거의 안 먹힘',
     base:{ dps:50, range:270, cone:.55, burn:6, stacks:4, organic:.6 } },
+  carrier: { ko:'인터셉터 모함', en:'CARRIER', col:[120,255,230], role:'전역 · 추적', desc:'작은 요격기를 띄워 멀리 있는 적까지 쫓아가 쏜다',
+    pros:['사거리 제한 없음: 화면 어디든 날아감 (360° 방어에 강함)', '여러 대가 흩어져 다른 적을 맡음'],
+    cons:'탄창을 비우면 모함으로 돌아와 재장전 · 처음 띄우는 데 시간이 걸리고 한 발이 약함',
+    base:{ dmg:11, every:.15, ammo:10, craft:2, speed:560, rearm:1.2, hunter:0 } },
+  flak:    { ko:'플락포', en:'FLAK', col:[255,226,120], role:'범위 · 산탄', desc:'공중에서 터져 파편을 흩뿌리는 대공포',
+    pros:['떼로 오는 작은 적(파편·포자)을 한 방에 정리', '앞질러 쏴서 빠른 적도 터뜨림'],
+    cons:'파편 하나하나가 약해 장갑에 거의 막힘 · 멀리 쏠수록 조준이 흔들림',
+    base:{ dmg:9, frags:10, every:1.2, range:640, spread:1.1, ap:0, double:0 } },
+  storm:   { ko:'스톰 발생기', en:'STORM', col:[160,140,255], role:'장판 · 지속', desc:'적이 몰린 곳에 번개 폭풍을 펼친다',
+    pros:['폭풍 안의 모든 적에게 계속 피해', '몰려오는 길목을 막아둠'],
+    cons:'재사용 대기 4초 · 펼쳐지기까지 0.6초 · 폭풍이 겹쳐도 피해는 안 겹침 · 빠른 적은 금방 빠져나감',
+    base:{ dps:55, radius:105, dur:3.5, every:4, range:640, delay:.6, slow:0, drift:0 } },
 };
 
 // upgrade cards. apply(s) changes that turret's stats; key cards (max 1) are marked core
@@ -140,6 +152,30 @@ export const UPG = {
     { id:'f_wide',  ko:'광각 노즐',   d:'부채꼴 폭 +40%',                 max:2, apply:s => { s.cone *= 1.4; } },
     { id:'f_sticky',ko:'점착 연료',   d:'화상 중첩 +3',                   max:2, apply:s => { s.stacks += 3; } },
     { id:'f_purge', ko:'소각',       d:'생체형에 피해 +60% 더',            max:1, apply:s => { s.organic += .6; } },
+  ],
+  carrier: [
+    { id:'ic_craft',ko:'편대 증강',   d:'인터셉터 +1',                    max:3, apply:s => { s.craft += 1; } },
+    { id:'ic_dmg',  ko:'기관포 강화', d:'피해 +30%',                     max:5, apply:s => { s.dmg *= 1.3; } },
+    { id:'ic_ammo', ko:'확장 탄창',   d:'탄창 +4발',                      max:3, apply:s => { s.ammo += 4; } },
+    { id:'ic_rearm',ko:'정비 자동화', d:'재장전 시간 -30%',               max:2, apply:s => { s.rearm *= .7; } },
+    { id:'ic_speed',ko:'애프터버너',  d:'비행 속도 +25%',                 max:2, apply:s => { s.speed *= 1.25; } },
+    { id:'ic_hunter',ko:'사냥꾼 편대', d:'엘리트·보스를 먼저 쫓고 그들에게 피해 +60%', max:1, apply:s => { s.hunter = .6; } },
+  ],
+  flak: [
+    { id:'fk_frags',ko:'파편 증량',   d:'파편 +5',                       max:3, apply:s => { s.frags += 5; } },
+    { id:'fk_dmg',  ko:'고폭 작약',   d:'파편 피해 +30%',                 max:5, apply:s => { s.dmg *= 1.3; } },
+    { id:'fk_rate', ko:'자동 장전',   d:'발사 간격 -20%',                 max:3, apply:s => { s.every *= .8; } },
+    { id:'fk_choke',ko:'조임 신관',   d:'파편이 덜 퍼짐 (큰 적에게 더 많이 맞음)', max:2, apply:s => { s.spread *= .75; } },
+    { id:'fk_ap',   ko:'철갑 파편',   d:'파편이 장갑을 무시',              max:1, apply:s => { s.ap = 1; } },
+    { id:'fk_double',ko:'이중 신관', d:'터진 자리에서 한 번 더 터짐 (파편 절반)', max:1, apply:s => { s.double = 1; } },
+  ],
+  storm: [
+    { id:'st_dps',  ko:'과충전',     d:'폭풍 피해 +30%',                 max:5, apply:s => { s.dps *= 1.3; } },
+    { id:'st_radius',ko:'광역 폭풍', d:'폭풍 반경 +25%',                 max:3, apply:s => { s.radius *= 1.25; } },
+    { id:'st_dur',  ko:'지속 장치',   d:'폭풍 지속 +1초',                  max:3, apply:s => { s.dur += 1; } },
+    { id:'st_rate', ko:'신속 재전개', d:'재사용 대기 -15%',               max:3, apply:s => { s.every *= .85; } },
+    { id:'st_static',ko:'정전기',    d:'폭풍 안의 적 35% 감속',            max:1, apply:s => { s.slow = .35; } },
+    { id:'st_drift',ko:'유도 폭풍',   d:'폭풍이 적이 몰린 쪽으로 천천히 따라감', max:1, apply:s => { s.drift = 1; } },
   ],
 };
 

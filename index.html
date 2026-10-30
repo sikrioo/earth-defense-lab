@@ -46,6 +46,27 @@
     <ul class="build" id="build"></ul>
     <div class="sheet-btns"><button type="button" id="resume" class="primary">계속하기</button><button type="button" id="restart">처음부터</button></div>
     <button type="button" id="pcodex" class="wide">도감 · 무기와 적</button>
+    <details class="stage" id="stage">
+      <summary>테스트 · 스테이지 선택</summary>
+      <div class="st-body">
+        <p class="st-label">시작 웨이브 <b id="stwave">1</b></p>
+        <div class="st-grid" id="stgrid" role="group" aria-label="시작 웨이브"></div>
+        <p class="st-label">시점</p>
+        <div class="st-seg" id="stview" role="radiogroup" aria-label="시점">
+          <button type="button" role="radio" data-v="" aria-checked="true">자동</button>
+          <button type="button" role="radio" data-v="line" aria-checked="false">전선</button>
+          <button type="button" role="radio" data-v="half" aria-checked="false">반구</button>
+          <button type="button" role="radio" data-v="full" aria-checked="false">360°</button>
+        </div>
+        <p class="st-label">건너뛴 웨이브의 카드</p>
+        <div class="st-seg" id="stcards" role="radiogroup" aria-label="건너뛴 웨이브의 카드">
+          <button type="button" role="radio" data-v="auto" aria-checked="true">자동 선택</button>
+          <button type="button" role="radio" data-v="manual" aria-checked="false">직접 고르기</button>
+          <button type="button" role="radio" data-v="none" aria-checked="false">받지 않기</button>
+        </div>
+        <button type="button" id="stgo" class="primary">이 스테이지로 시작</button>
+      </div>
+    </details>
     <a class="classic" href="./classic.html">클래식 모드 (예전 버전) →</a>
   </div>
 </div>

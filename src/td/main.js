@@ -5,34 +5,48 @@ import { drawParts, parts, setMAXP, updParts } from '../core/particles.js';
 import { resetJag, tickBolts } from '../core/lightning.js';
 import { FORT, ROCK, TURRET, UPG, WAVES } from './data.js';
 import { G, enemies, fx, shots } from './state.js';
-import { fitView, V } from './view.js';
+import { MODES, fitView, modeFor, startCamera, tickCamera, V } from './view.js';
 import { drawRocks, updRocks } from './enemies.js';
 import { bossAlive, startWave, updWaves } from './waves.js';
 import { drawBackdrop, drawFortress, invalidateBackdrop, updFortress } from './fortress.js';
 import { addTurret, drawTurrets, levelOf, placeTurrets, resetTurrets, turretAt, turrets, updShots, updTurrets } from './turrets.js';
-import { checkEnergy, choose, needFor, resetCards, smartPick } from './cards.js';
+import { checkEnergy, choose, needFor, open as openPick, resetCards, smartPick } from './cards.js';
 import { openCodex } from './codex.js';
 
-// test hooks: ?auto=1 picks cards by itself, ?speed=4 runs faster, ?wave=12 starts later
+// test hooks: ?auto=1 picks cards by itself, ?speed=4 runs faster, ?wave=12 starts later, ?view=full locks the view
 const QS = new URLSearchParams(location.search);
-const AUTO = QS.get('auto'), TEST_SPEED = +QS.get('speed') || 0, START_WAVE = Math.max(1, +QS.get('wave') || 1);
+const AUTO = QS.get('auto'), TEST_SPEED = +QS.get('speed') || 0, START_WAVE = Math.max(1, Math.min(30, +QS.get('wave') || 1));
+const QS_VIEW = ['line', 'half', 'full'].includes(QS.get('view')) ? QS.get('view') : null;
 
 const $ = id => document.getElementById(id);
 const hud = { wn:$('wn'), wfill:$('wfill'), hpfill:$('hpfill'), hpn:$('hpn'), enfill:$('enfill'), boss:$('boss'), bossName:$('bossname'), bfill:$('bfill'),
   banner:$('banner'), spd:$('spd'), pause:$('pausebtn'), pausebox:$('pausebox'), build:$('build'), over:$('over') };
 
-function newRun(){
+// the view (line → half → full) follows the wave unless the stage select locked one
+const wantView = () => G.viewLock || modeFor(G.wave || 1);
+function setView(mode, animate){
+  const from = fitView(mode); placeTurrets(); invalidateBackdrop();
+  if (animate){ startCamera(from); const M = MODES[mode]; G.banner = { title:`${M.en}`, sub:`시야 확장 · ${M.ko} 방어 · 포탑 자리 ${M.pads}개 · 새 포탑 1개`, warn:false }; G.bannerT = 2.6; G.bonusPick = true; }
+}
+// run setup: start = first wave, view = locked view or null for automatic, freePicks = cards handed out for skipped waves
+function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoPicks = !!AUTO){
   enemies.length = 0; fx.length = 0; parts.length = 0; resetTurrets(); resetCards();
   Object.assign(G, { phase:'wave', wave:0, paused:false, picking:false, hp:FORT.hp, hpMax:FORT.hp, regen:0, hitT:0,
-    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0 });
+    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, pickQueue:0, bonusPick:false });
+  G.wave = start; setView(wantView(), false);
   addTurret('gatling');
   hud.over.hidden = true; hud.pausebox.hidden = true;
-  startWave(START_WAVE);
-  if (START_WAVE > 1) for (let i = 0; i < START_WAVE; i++){ G.energy += G.need; checkEnergy(); if (AUTO) choose(AUTO === 'smart' ? smartPick() : 0); }
+  startWave(start);
+  // skipped waves: the cards you would have earned, one after another (the bots pick for themselves)
+  if (freePicks && start > 1){
+    if (autoPicks) for (let i = 0; i < start; i++){ G.energy += G.need; checkEnergy(); choose(AUTO === 'smart' || !AUTO ? smartPick() : 0); }
+    else G.pickQueue = start;
+  }
 }
 
 function update(dt){
   updWaves(dt);
+  if (wantView() !== V.mode) setView(wantView(), true);
   updRocks(dt);
   updTurrets(dt);
   updShots(dt);
@@ -41,6 +55,9 @@ function update(dt){
   for (let i = fx.length - 1; i >= 0; i--) if (!fx[i].update(dt)) fx.splice(i, 1);
   G.runTime += dt;
   checkEnergy();
+  // a wider view comes with a free pick of new turrets for the new pads (once the zoom has settled)
+  if (G.bonusPick && !G.picking && V.cam === 1){ G.bonusPick = false; openPick(true); }
+  if (!G.picking && G.pickQueue > 0){ G.pickQueue--; G.picks++; G.need = needFor(G.picks); openPick(); }
   if (G.picking && AUTO) choose(AUTO === 'smart' ? smartPick() : (Math.random()*3)|0);
   if (G.hp <= 0 && G.phase !== 'over'){ G.phase = 'over'; endRun(false); }
   if (G.phase === 'win' && hud.over.hidden) endRun(true);
@@ -51,7 +68,9 @@ function render(){
   rollShake();
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   ctx.fillStyle = '#04050c'; ctx.fillRect(0, 0, cv.width, cv.height);
-  ctx.setTransform(RS, 0, 0, RS, RS*shX, RS*shY);
+  // camera: during a view change the scene is drawn scaled about Earth, easing out to the new view
+  const c = V.cam, ex = V.cx + V.ox, ey = V.cy;
+  ctx.setTransform(RS*c, 0, 0, RS*c, RS*(c*shX + ex*(1 - c)), RS*(c*shY + ey*(1 - c)));
   drawBackdrop();
   ctx.globalCompositeOperation = 'lighter';
   drawFortress(turretAt);
@@ -105,7 +124,20 @@ hud.spd.addEventListener('click', () => { G.speed = G.speed === 1 ? 2 : 1; hud.s
 hud.pause.addEventListener('click', () => setPaused(!G.paused));
 $('resume').addEventListener('click', () => setPaused(false));
 $('restart').addEventListener('click', () => { setPaused(false); newRun(); });
-$('again').addEventListener('click', newRun);
+$('again').addEventListener('click', () => newRun());
+// test: stage select in the pause sheet — start wave, view lock, what to do about the skipped waves' cards
+const stage = { wave:1, view:'', cards:'auto' };
+const BAND = { line:'rgba(90,230,255,.55)', half:'rgba(176,156,255,.6)', full:'rgba(255,206,110,.6)' };
+$('stgrid').innerHTML = Array.from({ length:WAVES.last }, (_, i) => { const w = i + 1, boss = WAVES.extra(w).some(k => ROCK[k].boss);
+  return `<button type="button" style="--band:${BAND[modeFor(w)]}" class="${boss ? 'bw' : ''}" aria-pressed="${w === 1}" aria-label="웨이브 ${w}${boss ? ' 보스' : ''}">${w}</button>`; }).join('');
+$('stgrid').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; stage.wave = +b.textContent; $('stwave').textContent = stage.wave;
+  $('stgrid').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+for (const [id, key] of [['stview', 'view'], ['stcards', 'cards']]) $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; stage[key] = b.dataset.v;
+  $(id).querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', x === b)); });
+$('stgo').addEventListener('click', () => {
+  setPaused(false); $('stage').open = false;
+  newRun(stage.wave, stage.view || null, stage.cards !== 'none', stage.cards === 'auto');
+});
 $('codexbtn').addEventListener('click', () => openCodex());
 $('pcodex').addEventListener('click', () => openCodex());
 addEventListener('keydown', e => {
@@ -114,7 +146,7 @@ addEventListener('keydown', e => {
   if (e.key === 'c') openCodex();
   if (e.key === ' '){ e.preventDefault(); hud.spd.click(); }
 });
-addEventListener('resize', () => { fitView(); placeTurrets(); invalidateBackdrop(); });
+addEventListener('resize', () => setView(V.mode, false));
 
 let last = performance.now();
 function frame(now){
@@ -126,6 +158,7 @@ function frame(now){
     const steps = TEST_SPEED || G.speed;
     for (let i = 0; i < steps; i++){ tickClock(dt); tickBolts(dt); update(dt); }
   } else { for (let i = fx.length - 1; i >= 0; i--) if (!fx[i].update(0)) fx.splice(i, 1); }
+  tickCamera(dt);
   render();
   drawHud();
 }
@@ -135,4 +168,4 @@ fitView();
 newRun();
 requestAnimationFrame(frame);
 // for tests and tinkering in the console
-window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret };
+window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret, newRun, resetTurrets };

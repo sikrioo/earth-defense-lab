@@ -30,6 +30,9 @@ function statRows(type, s){
     case 'tesla':   return [['피해', f1(s.dmg)], ['튀는 횟수', `${s.jumps}번 (-25%씩)`], ['간격', `${f1(s.every)}초`], ['사거리', s.range]];
     case 'drone':   return [['피해', f1(s.dmg)], ['간격', `${f1(s.every)}초`], ['사격 범위', s.radius], ['드론', `${s.drones}대`]];
     case 'rail':    return [['피해', `${s.dmg} · 장갑 무시`], ['충전', `${f1(s.charge)}초`], ['관통', '일직선 전부'], ['조준 고정', `충전 ${Math.round(s.lockAt*100)}%부터`]];
+    case 'carrier': return [['피해', `${f1(s.dmg)} × 탄창 ${s.ammo}발`], ['인터셉터', `${s.craft}대`], ['재장전', `${f1(s.rearm)}초`], ['사거리', '화면 전체']];
+    case 'flak':    return [['파편', `${f1(s.dmg)} × ${s.frags}개`], ['간격', `${f1(s.every)}초`], ['사거리', s.range], ['퍼짐', `${Math.round(s.spread*57)}°`]];
+    case 'storm':   return [['초당 피해', f1(s.dps)], ['반경', Math.round(s.radius)], ['지속', `${f1(s.dur)}초`], ['재사용', `${f1(s.every)}초`]];
     case 'flame':   return [['초당 피해', f1(s.dps)], ['화상', `초당 ${s.burn} × 최대 ${s.stacks}중첩`], ['사거리', s.range], ['생체형', `+${Math.round(s.organic*100)}%`]];
   }
   return [];

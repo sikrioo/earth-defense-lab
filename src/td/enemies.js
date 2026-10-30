@@ -5,7 +5,7 @@ import { emit, sprite } from '../core/particles.js';
 import { srng } from '../core/util.js';
 import { ROCK, WAVES } from './data.js';
 import { G, enemies } from './state.js';
-import { PW, V, shieldY } from './view.js';
+import { PW, V, angC, distC, inWorld, shieldAt } from './view.js';
 import { bigNumber, burst, explode, mixc, rgb } from './fx.js';
 import { hitFortress } from './fortress.js';
 import { discover } from './codex.js';
@@ -19,17 +19,19 @@ export function spawnRock(type, x, y, opts = {}){
   const T = ROCK[type], w = Math.max(1, G.wave);
   const e = { type, T, x, y, r:T.r*(T.boss ? 1 : rand(1.05, 1.3)), variant:(Math.random()*3)|0, seed:rand(0, 100),
     hp:0, max:0, speed:T.speed*WAVES.speed(w)*V.spd, rot:rand(0, TAU), spin:rand(-.6, .6)/(T.boss ? 6 : 1),
-    vx:0, vy:0, px:0, py:0, tx:x, slowT:0, slowAmt:0, freezeT:0, stunT:0, flash:0, spT:T.every || 0, dead:false, ...opts };
+    vx:0, vy:0, px:0, py:0, tx:x, ty:y, slowT:0, slowAmt:0, freezeT:0, stunT:0, flash:0, spT:T.every || 0, dead:false, ...opts };
   e.max = e.hp = Math.round(T.hp*WAVES.hp(w)*(opts.hpMul || 1));
-  if (T.comet){
-    // comets cut across at a shallow angle, aimed somewhere along the shield
-    const aimX = rand(PW*.15, PW*.85), dx = aimX - x, dy = V.defY - y, d = Math.hypot(dx, dy);
-    e.vx = dx/d*e.speed; e.vy = dy/d*e.speed; e.rot = Math.atan2(e.vy, e.vx); e.spin = 0;
-  } else e.tx = Math.max(e.r, Math.min(PW - e.r, x + rand(-60, 60)));
+  // every rock heads for a point on the shield; it picks the side of Earth it came from
+  aimAt(e, opts.aim ?? angC(x, y) + rand(-.25, .25));
+  if (T.comet){ const dx = e.tx - x, dy = e.ty - y, d = Math.hypot(dx, dy); e.vx = dx/d*e.speed; e.vy = dy/d*e.speed; e.rot = Math.atan2(e.vy, e.vx); e.spin = 0; }
   enemies.push(e); discover(type); return e;
 }
 
 // all damage goes through here: armour, the cryo "shatter" bonus, numbers for big hits
+function aimAt(e, a){
+  if (V.mode === 'line'){ a = Math.max(-Math.PI/2 - .36, Math.min(-Math.PI/2 + .36, a)); }
+  const p = shieldAt(a); e.tx = p.x; e.ty = p.y; e.aim = a;
+}
 export function hurt(e, dmg, opts = {}){
   if (!alive(e)) return 0;
   let d = dmg;
@@ -57,12 +59,14 @@ function kill(e){
   explode(e.x, e.y, e.r*1.6, e.T.col);
   if (e.T.boss){ addShake(10); for (let i = 0; i < 4; i++) setTimeout(() => explode(e.x + rand(-e.r, e.r), e.y + rand(-e.r, e.r), e.r, e.T.col), i*120); }
   if (e.T.split) for (let i = 0; i < e.T.split; i++){
-    const s = spawnRock(e.T.splitInto || 'shard', e.x + rand(-8, 8), e.y + rand(-8, 8), { hpMul:1 });
-    s.px = Math.cos(-Math.PI/2 + (i - 1)*1.1)*140; s.py = -40; s.tx = Math.max(10, Math.min(PW - 10, e.x + (i - 1)*70));
+    // fragments burst sideways (relative to the way the rock was falling) and pick spots nearby on the shield
+    const a = angC(e.x, e.y), side = a + Math.PI/2;
+    const s = spawnRock(e.T.splitInto || 'shard', e.x + rand(-8, 8), e.y + rand(-8, 8), { hpMul:1, aim:(e.aim ?? a) + (i - 1)*.12 });
+    s.px = Math.cos(side)*(i - 1)*150 + Math.cos(a)*40; s.py = Math.sin(side)*(i - 1)*150 + Math.sin(a)*40;
     G.waveTotal++;
   }
   // a few energy sparks drift to the bar
-  for (let i = 0; i < Math.min(4, Math.ceil(e.T.energy)); i++) emit({ x:e.x, y:e.y, vx:(PW/2 - e.x)*rand(.6, 1), vy:(V.PH - 40 - e.y)*rand(.6, 1), drag:.2, life:1, s0:3, s1:1.2, pal:[[220,255,255],[90,230,255]] });
+  for (let i = 0; i < Math.min(4, Math.ceil(e.T.energy)); i++) emit({ x:e.x, y:e.y, vx:(V.cx - e.x)*rand(.6, 1), vy:(V.cy - e.y)*rand(.6, 1), drag:.2, life:1, s0:3, s1:1.2, pal:[[220,255,255],[90,230,255]] });
 }
 
 export function updRocks(dt){
@@ -73,18 +77,21 @@ export function updRocks(dt){
     const k = e.freezeT > 0 || e.stunT > 0 ? 0 : e.slowT > 0 ? 1 - e.slowAmt : 1;
     if (e.T.comet){ e.x += e.vx*k*dt; e.y += e.vy*k*dt; }
     else {
-      e.vy = e.speed*k; e.vx = (e.tx - e.x)*.35*k;
-      if (e.T.weave) e.vx += Math.sin(time*3.2 + e.seed)*e.T.weave*k;
+      // steer for the chosen point on the shield; weavers sway across the line of travel
+      const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy) || 1, ux = dx/d, uy = dy/d;
+      e.vx = ux*e.speed*k; e.vy = uy*e.speed*k;
+      if (e.T.weave){ const w = Math.sin(time*3.2 + e.seed)*e.T.weave*k; e.vx += -uy*w; e.vy += ux*w; }
       e.x += (e.vx + e.px)*dt; e.y += (e.vy + e.py)*dt;
       e.rot += e.spin*dt*(k > 0 ? 1 : 0);
     }
     const f = Math.exp(-3*dt); e.px *= f; e.py *= f;
-    if (!e.T.comet) e.x = Math.max(e.r*.6, Math.min(PW - e.r*.6, e.x));
-    if (e.T.spawns && k > 0 && e.y > -e.r*.3){
+    if (V.mode === 'line' && !e.T.comet) e.x = Math.max(e.r*.6, Math.min(PW - e.r*.6, e.x));
+    if (e.T.spawns && k > 0 && inWorld(e.x, e.y, -e.r*.3)){
       e.spT -= dt;
-      if (e.spT <= 0){ e.spT = e.T.every; for (let j = 0; j < 2; j++){ const a = rand(0, TAU); spawnRock(e.T.spawns, e.x + Math.cos(a)*e.r, e.y + Math.sin(a)*e.r*.6, { hpMul:.8 }); G.waveTotal++; } }
+      if (e.spT <= 0){ e.spT = e.T.every; for (let j = 0; j < 2; j++){ const a = rand(0, TAU); spawnRock(e.T.spawns, e.x + Math.cos(a)*e.r, e.y + Math.sin(a)*e.r*.6, { hpMul:.8, aim:(e.aim ?? angC(e.x, e.y)) + rand(-.4, .4) }); G.waveTotal++; } }
     }
-    if (e.y + e.r*.55 >= shieldY(e.x)){ e.dead = true; G.waveDone++; hitFortress(e); }
+    if (distC(e.x, e.y) <= V.SR + e.r*.55){ e.dead = true; G.waveDone++; hitFortress(e); }
+    else if (e.T.comet && !inWorld(e.x, e.y, 300)){ e.dead = true; G.waveDone++; }   // a comet that missed everything
   }
 }
 
@@ -197,7 +204,7 @@ function hiveTendrils(e){
 // the eye: an amber iris with a slit, looking toward the fortress, blinking now and then
 function hiveEye(e){
   const R = e.r, blink = Math.max(0, Math.sin(time*.9 + e.seed*3)) > .985 ? .1 : 1;
-  const look = Math.max(-1, Math.min(1, (V.PH*.8 - e.y)/600)), ex = Math.sin(time*.7)*R*.06, ey = R*.05*look;
+  const la = Math.atan2(V.cy - e.y, V.cx - e.x), ex = Math.cos(la)*R*.07 + Math.sin(time*.7)*R*.02, ey = Math.sin(la)*R*.07;   // looks at Earth
   ctx.save(); ctx.translate(e.x, e.y);
   ctx.beginPath(); ctx.ellipse(0, 0, R*.33, R*.27*blink, 0, 0, TAU); ctx.clip();
   const gr = ctx.createRadialGradient(ex, ey, 0, ex, ey, R*.3);
