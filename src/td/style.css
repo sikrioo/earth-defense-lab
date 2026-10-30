@@ -230,3 +230,22 @@ button{ font:inherit; color:inherit; }
 .tbtns button{ white-space:nowrap; min-width:36px; padding:0 7px; }
 .top{ gap:8px; } .wave{ white-space:nowrap; }
 @media (max-width:420px){ .wave .wl, .wave .wt{ display:none; } .wbar{ min-width:40px; } }
+
+/* first-play guide card */
+.tip{ position:fixed; inset:0; z-index:15; display:grid; place-items:center; background:rgba(2,4,10,.55); padding:16px; }
+.tip-box{ width:min(var(--colw), 100%); max-width:400px; box-sizing:border-box; display:grid; gap:8px; padding:16px 18px; border-radius:14px; border:1px solid rgba(159,245,200,.45); background:#07101a; box-shadow:0 0 30px rgba(120,255,190,.15); }
+.tip-tag{ font-family:var(--num); font-size:11px; letter-spacing:.2em; color:#9ff5c8; }
+.tip-box b{ font-size:18px; font-weight:600; } .tip-box p{ margin:0; font-size:14px; line-height:1.55; color:#d6e4f5; }
+.tip-btns{ display:flex; gap:8px; justify-content:flex-end; margin-top:4px; }
+.tip-btns button{ appearance:none; height:38px; padding:0 14px; border-radius:9px; border:1px solid var(--line); background:transparent; color:var(--dim); font:inherit; cursor:pointer; }
+.tip-btns .tip-ok{ border-color:#9ff5c8; color:#fff; background:rgba(159,245,200,.12); font-weight:600; }
+/* options */
+.op-box{ gap:10px; }
+.op-row{ display:grid; grid-template-columns:96px 1fr auto; gap:10px; align-items:center; }
+.op-row .st-seg{ grid-column:2 / -1; }
+.op-l{ font-size:13px; color:#cfe0f5; } .op-volv{ font-family:var(--num); font-size:12px; color:var(--dim); min-width:44px; text-align:right; }
+.op-row input[type=range]{ width:100%; accent-color:#5ae6ff; }
+.op-note{ margin:0; font-size:11px; color:var(--dim); }
+.sheet .op-close{ height:42px; }
+.ti-sub{ font-size:13px; }
+#options{ z-index:16; } #title{ z-index:14; }

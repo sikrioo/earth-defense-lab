@@ -4,6 +4,7 @@ import { ROCK, SECTORS, WAVES, sectorOf } from './data.js';
 import { G, enemies } from './state.js';
 import { pickDir, spawnPoint } from './view.js';
 import { sfx } from './sfx.js';
+import { tip } from './tips.js';
 import { alive, spawnRock } from './enemies.js';
 
 function pickWeighted(list){
@@ -47,7 +48,7 @@ export function updWaves(dt){
   }
   if (G.phase !== 'wave') return;
   G.spawnT += dt;
-  if (G.surgeAt && !G.surgeWarned && G.spawnT >= G.surgeAt - 1.6){ G.surgeWarned = true; banner('METEOR SURGE', '운석 떼가 몰려와요', true); sfx.alarm(); }
+  if (G.surgeAt && !G.surgeWarned && G.spawnT >= G.surgeAt - 1.6){ G.surgeWarned = true; banner('METEOR SURGE', '운석 떼가 몰려와요', true); sfx.alarm(); tip('surge'); }
   while (G.queue.length && G.queue[0].t <= G.spawnT){
     const { type, dir } = G.queue.shift(), p = spawnPoint(ROCK[type], dir);
     spawnRock(type, p.x, p.y, { aim:p.aim });

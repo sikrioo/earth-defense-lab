@@ -2,16 +2,17 @@
 import { AFFIX, ELEMENTS, GRADES, LINKS, NAMED } from './data.js';
 
 let uid = 0;
+export const bumpUid = n => { uid = Math.max(uid, n); };
 const pick = list => list[(Math.random()*list.length)|0];
 function weighted(){
   const ks = Object.keys(GRADES).filter(k => GRADES[k].w > 0), tot = ks.reduce((a, k) => a + GRADES[k].w, 0);
   let r = Math.random()*tot; for (const k of ks){ if ((r -= GRADES[k].w) <= 0) return k; } return ks[0];
 }
-const rollValue = (k, lo) => { const A = AFFIX[k], t = lo + Math.random()*(1 - lo); return Math.round(A.lo + (A.hi - A.lo)*t); };
+const rollValue = (k, lo, hi = 1) => { const A = AFFIX[k], t = lo + Math.random()*(hi - lo); return Math.round(A.lo + (A.hi - A.lo)*t); };
 
 export function rollCore(grade = weighted()){
   const g = GRADES[grade], keys = Object.keys(AFFIX).filter(k => !AFFIX[k].rare).sort(() => Math.random() - .5);
-  return { id:++uid, grade, el:pick(Object.keys(ELEMENTS)), affixes:keys.slice(0, g.n).map(k => ({ k, v:rollValue(k, g.lo) })) };
+  return { id:++uid, grade, el:pick(Object.keys(ELEMENTS)), affixes:keys.slice(0, g.n).map(k => ({ k, v:rollValue(k, g.lo, g.hi) })) };
 }
 export function namedCore(key){
   const N = NAMED[key], have = new Set(N.fixed.map(([k]) => k));
@@ -20,7 +21,7 @@ export function namedCore(key){
 }
 // what a dying enemy leaves: elites one core (rarely the named crystal), bosses their named core plus a good one
 export function dropFor(e){
-  if (e.T.boss) return [NAMED[e.type] ? namedCore(e.type) : rollCore('flawless'), rollCore(Math.random() < .3 ? 'flawless' : 'pure')];
+  if (e.T.boss) return [NAMED[e.type] ? namedCore(e.type) : rollCore('highest'), rollCore(Math.random() < .3 ? 'highest' : 'high')];
   if (e.T.elite) return [Math.random() < .05 ? namedCore('elite') : rollCore()];
   return [];
 }

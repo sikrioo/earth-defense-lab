@@ -117,28 +117,33 @@ export const TURRET = {
     cons:'재사용 대기 4초 · 펼쳐지기까지 0.6초 · 폭풍이 겹쳐도 피해는 안 겹침 · 빠른 적은 금방 빠져나감',
     base:{ dps:55, radius:105, dur:3.5, every:4, range:640, delay:.6, slow:0, drift:0 } },
   miner:   { ko:'채굴기', en:'MINER', col:[130,240,150], role:'자원 · 채굴', desc:'채굴 드론을 띄워 부서진 운석의 광석을 실어 온다',
-    pros:['빠르고 많이 실어 와서 카드를 더 자주 받음', '결정 광석·에너지 코어까지 운반 (요새 기본 드론은 일반 광석만)'],
+    pros:['빠르고 많이 실어 와서 카드를 더 자주 받음', '모든 등급의 광석과 에너지 코어까지 운반 (요새 기본 드론은 규산염·철광석만)'],
     cons:'공격을 전혀 안 함: 발판 하나만큼 화력이 줄어듦 · 드론이 운석에 부딪히면 격추돼 4초 뒤 복귀',
-    base:{ drones:2, speed:340, scoop:44, cap:10, yield:.15, armor:0, kinds:['ore', 'crystal', 'core'] } },
+    base:{ drones:2, speed:340, scoop:44, cap:10, yield:.15, armor:0, tier:5, cores:1 } },
 };
 // ore: what a broken rock leaves behind. Only what the drones (or the shield's magnet) bring home becomes energy.
-// Three kinds: plain ore (every rock), crystal ore (armoured rocks, elites, bosses — worth more, only miner
-// drones can carry it) and energy cores (drift slowly toward Earth, so the magnet gets them in the end).
-export const ORE = { yieldMul:1.35, life:12, coreLife:45, magnet:46, coreDrift:24,
-  kinds:{
-    ore:     { ko:'일반 광석', col:[120,255,220], from:'모든 운석' },
-    crystal: { ko:'결정 광석', col:[200,150,255], from:'철 운석·수정 운석·보스', share:.5 },
-    core:    { ko:'에너지 코어', col:[255,220,140], from:'엘리트·보스' },
-  },
-  base:{ drones:2, speed:230, scoop:24, cap:3, yield:0, armor:0, kinds:['ore'] } };   // the fortress's own two slow drones
+// Ore comes in five grades: the rarer, the more each piece is worth. What a rock drops depends on the rock and
+// the sector (deeper sectors bump pieces up a grade more often). The fortress's own drones only carry grades 1-2;
+// miner drones carry everything, cores included. Cores also drift slowly toward Earth so the magnet gets them in the end.
+export const ORE = { yieldMul:1.3, life:12, coreLife:45, magnet:46, coreDrift:24,
+  tiers:[
+    { ko:'규산염',   en:'SILICATE', col:[150,235,215], mul:1,   from:'모든 운석' },
+    { ko:'철광석',   en:'IRON',     col:[255,170,110], mul:1.6, from:'철 운석 · 빙하 · 깊은 섹터의 운석' },
+    { ko:'니켈',     en:'NICKEL',   col:[200,225,255], mul:2.4, from:'혜성 · 얼음 혜성 · 렌즈' },
+    { ko:'자수정',   en:'AMETHYST', col:[200,140,255], mul:3.5, from:'수정 운석(엘리트) · 플라즈마 섹터' },
+    { ko:'이리듐',   en:'IRIDIUM',  col:[255,220,120], mul:5,   from:'보스' },
+  ],
+  core:{ ko:'에너지 코어', col:[255,220,140] },
+  base:{ drones:2, speed:230, scoop:24, cap:3, yield:0, armor:0, tier:2, cores:0 } };   // the fortress's own two slow drones
 // Energy cores work like jewels: each has a grade, an element and random affixes rolled inside fixed ranges.
-// Grades: how many affixes and where in the range they roll. Named cores come from bosses: fixed affixes + one random.
+// Grades (최하급 → 최상급): how many affixes and which part of the range they roll in. Named cores come from bosses: fixed affixes + one random.
 export const GRADES = {
-  common:  { ko:'일반',   en:'COMMON',   n:1, lo:0,   col:[205,215,230], w:50 },
-  refined: { ko:'정제',   en:'REFINED',  n:2, lo:0,   col:[110,220,255], w:34 },
-  pure:    { ko:'고순도', en:'PURE',     n:3, lo:0,   col:[200,140,255], w:13 },
-  flawless:{ ko:'무결',   en:'FLAWLESS', n:3, lo:.5,  col:[255,205,90],  w:3 },
-  named:   { ko:'네임드', en:'NAMED',    n:1, lo:.3,  col:[255,130,80],  w:0 },
+  lowest:  { ko:'최하급', en:'CRUDE',    n:1, lo:0,   hi:.5, col:[150,160,175], w:28 },
+  low:     { ko:'하급',   en:'COMMON',   n:1, lo:0,   hi:1,  col:[205,215,230], w:30 },
+  normal:  { ko:'일반',   en:'STANDARD', n:2, lo:0,   hi:1,  col:[110,220,255], w:26 },
+  high:    { ko:'상급',   en:'SUPERIOR', n:3, lo:0,   hi:1,  col:[200,140,255], w:13 },
+  highest: { ko:'최상급', en:'PRISTINE', n:3, lo:.5,  hi:1,  col:[255,205,90],  w:3 },
+  named:   { ko:'네임드', en:'NAMED',    n:1, lo:.3,  hi:1,  col:[255,130,80],  w:0 },
 };
 // elements: the colour of a core, and what links it can form
 export const ELEMENTS = {

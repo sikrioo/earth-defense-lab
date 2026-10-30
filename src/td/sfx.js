@@ -3,7 +3,7 @@
    gatling at ×2 speed doesn't turn into a buzz, and a cap on how many voices play at once. */
 const KEY = 'edl.mute.v1';
 let ac = null, out = null, noise = null, voices = 0;
-let muted = false;
+let muted = false, vol = .8;
 try { muted = localStorage.getItem(KEY) === '1'; } catch (_){ /* private mode */ }
 const last = {};
 
@@ -12,7 +12,7 @@ function init(){
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
   ac = new AC();
   const comp = ac.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 6; comp.connect(ac.destination);
-  out = ac.createGain(); out.gain.value = muted ? 0 : .5; out.connect(comp);
+  out = ac.createGain(); out.gain.value = muted ? 0 : .6*vol; out.connect(comp);
   noise = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
   const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
 }
@@ -22,12 +22,14 @@ addEventListener('pointerdown', wake, { passive:true }); addEventListener('keydo
 export const isMuted = () => muted;
 export function setMuted(m){
   muted = m; try { localStorage.setItem(KEY, m ? '1' : '0'); } catch (_){ /* fine */ }
-  if (out) out.gain.setTargetAtTime(m ? 0 : .5, ac.currentTime, .05);
+  if (out) out.gain.setTargetAtTime(m ? 0 : .6*vol, ac.currentTime, .05);
 }
+export const getVolume = () => vol;
+export function setVolume(v){ vol = v; if (out) out.gain.setTargetAtTime(muted ? 0 : .6*vol, ac.currentTime, .05); }
 
 // gate: is this sound allowed right now?
 function ok(name, gap){
-  if (!ac || muted || ac.state !== 'running' || voices > 22) return false;
+  if (!ac || muted || vol <= 0 || ac.state !== 'running' || voices > 22) return false;
   const t = ac.currentTime; if (last[name] && t - last[name] < gap) return false;
   last[name] = t; return true;
 }

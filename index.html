@@ -70,12 +70,42 @@
   </div>
 </div>
 
+<div class="tip" id="tip" hidden role="dialog" aria-modal="true" aria-label="안내">
+  <div class="tip-box"><span class="tip-tag">GUIDE</span><b></b><p></p>
+    <div class="tip-btns"><button type="button" class="tip-ok">알겠어요</button><button type="button" class="tip-off">안내 그만 보기</button></div></div>
+</div>
+
+<div class="sheet" id="title" hidden role="dialog" aria-label="이어하기">
+  <div class="sheet-box">
+    <h2>EARTH DEFENSE</h2>
+    <p class="sheet-sub ti-sub"></p>
+    <div class="sheet-btns"><button type="button" id="ticont" class="primary">이어하기</button><button type="button" id="tinew">새로 시작</button></div>
+    <button type="button" id="tiopts" class="wide">설정</button>
+  </div>
+</div>
+
+<div class="sheet" id="options" hidden role="dialog" aria-label="설정">
+  <div class="sheet-box op-box">
+    <h2>OPTIONS</h2>
+    <div class="op-row"><span class="op-l">효과음</span><input type="range" id="opvol" min="0" max="100" step="5" aria-label="효과음 볼륨"><span class="op-volv"></span></div>
+    <button type="button" id="opmute" class="wide" aria-pressed="false">음소거</button>
+    <div class="op-row"><span class="op-l">화면 흔들림</span><div class="st-seg" id="opshake" role="radiogroup" aria-label="화면 흔들림"><button type="button" role="radio" data-v="0">끄기</button><button type="button" role="radio" data-v="0.5">약하게</button><button type="button" role="radio" data-v="1">보통</button></div></div>
+    <div class="op-row"><span class="op-l">피격 붉은 화면</span><div class="st-seg" id="opflash" role="radiogroup" aria-label="피격 붉은 화면"><button type="button" role="radio" data-v="0">끄기</button><button type="button" role="radio" data-v="1">켜기</button></div></div>
+    <div class="op-row"><span class="op-l">첫 플레이 안내</span><div class="st-seg" id="optips" role="radiogroup" aria-label="첫 플레이 안내"><button type="button" role="radio" data-v="0">끄기</button><button type="button" role="radio" data-v="1">켜기</button></div></div>
+    <button type="button" id="optipsreset" class="wide">안내 처음부터 다시 보기</button>
+    <button type="button" id="opsave" class="wide">저장된 진행 지우기</button>
+    <p class="op-note">진행은 웨이브가 시작될 때마다 이 브라우저에 자동으로 저장돼요 (테스트 실행은 저장 안 함).</p>
+    <button type="button" class="op-close primary">닫기</button>
+  </div>
+</div>
+
 <div class="sheet" id="pausebox" hidden role="dialog" aria-label="일시정지">
   <div class="sheet-box">
     <h2>PAUSED</h2>
     <p class="sheet-sub">지금 빌드</p>
     <ul class="build" id="build"></ul>
     <div class="sheet-btns"><button type="button" id="resume" class="primary">계속하기</button><button type="button" id="restart">처음부터</button></div>
+    <button type="button" id="popts" class="wide">설정 · 소리 · 화면 · 안내</button>
     <button type="button" id="pcores" class="wide">코어 관리 · 슬롯과 링크</button>
     <button type="button" id="pcodex" class="wide">도감 · 무기와 적</button>
     <details class="stage" id="stage">

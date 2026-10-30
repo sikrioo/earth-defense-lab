@@ -49,8 +49,7 @@ function firstWave(type){
 }
 // 이/가: pick by whether the last syllable has a final consonant
 const josa = w => { const c = w.charCodeAt(w.length - 1) - 0xac00; return c >= 0 && c < 11172 && c % 28 ? '이' : '가'; };
-const KO_KIND = { ore:'일반', crystal:'결정', core:'코어' };
-function droneRows(s){ return [['드론', `${s.drones}대`], ['속도', Math.round(s.speed)], ['적재량', `광석 ${f1(s.cap)}`], ['집게 반경', Math.round(s.scoop)], ['운반 가능', s.kinds.map(k => KO_KIND[k]).join(' · ')], ...(s.yield ? [['정제', `+${Math.round(s.yield*100)}%`]] : [])]; }
+function droneRows(s){ return [['드론', `${s.drones}대`], ['속도', Math.round(s.speed)], ['적재량', `광석 ${f1(s.cap)}`], ['집게 반경', Math.round(s.scoop)], ['운반 가능', `광석 ${s.tier}등급까지${s.cores ? ' · 코어' : ''}`], ...(s.yield ? [['정제', `+${Math.round(s.yield*100)}%`]] : [])]; }
 function section(t){ const h = document.createElement('h3'); h.className = 'cx-sec'; h.textContent = t; list.appendChild(h); }
 function item(col, name, en, desc, stats, icon, extra = ''){
   const a = document.createElement('article'); a.className = 'cx-item'; a.style.setProperty('--c', `rgb(${col})`);
@@ -84,13 +83,14 @@ function render(){
     list.appendChild(note);
     section('채굴 드론');
     const M = TURRET.miner;
-    item([200,215,235], '요새 기본 드론', 'BASE', '느리고 조금씩 실어 오는 요새의 일꾼 2대. 일반 광석만 나를 수 있어요.', droneRows(ORE.base), c => drawWorkerIcon(c, [200,215,235], ['ore', 'ore']));
-    item(M.col, '채굴기 드론', 'MINER', `채굴기 포탑 하나에 딸린 드론. 빠르고 많이 싣고, 결정 광석과 에너지 코어까지 날라요. 정제기로 실어 온 광석 가치도 올려요.`, droneRows(M.base), c => drawWorkerIcon(c, M.col, ['crystal', 'ore', 'core']),
+    item([200,215,235], '요새 기본 드론', 'BASE', '느리고 조금씩 실어 오는 요새의 일꾼 2대. 규산염과 철광석(1~2등급)만 나를 수 있어요.', droneRows(ORE.base), c => drawWorkerIcon(c, [200,215,235], [1, 2, 1]));
+    item(M.col, '채굴기 드론', 'MINER', `채굴기 포탑 하나에 딸린 드론. 빠르고 많이 싣고, 모든 등급의 광석과 에너지 코어까지 날라요. 정제기로 실어 온 광석 가치도 올려요.`, droneRows(M.base), c => drawWorkerIcon(c, M.col, [4, 2, 'core', 5]),
       `<details><summary>강화 카드 ${UPG.miner.length}종</summary><ul class="cx-ups">${UPG.miner.map(u => `<li${u.max === 1 ? ' class="core"' : ''}><b>${u.ko}</b><span>${u.d}</span><em>${u.max === 1 ? '핵심' : '최대 ' + u.max}</em></li>`).join('')}</ul></details>`);
     section('광물');
-    const K = ORE.kinds;
-    item(K.ore.col, K.ore.ko, 'ORE', '운석이 부서지면 남는 기본 광물.', [['나오는 곳', K.ore.from], ['사라짐', `${ORE.life}초`], ['운반', '모든 드론']], c => drawOreIcon(c, 'ore'));
-    item(K.crystal.col, K.crystal.ko, 'CRYSTAL', '단단한 운석 속의 결정. 조각이 크고 값어치가 높아요.', [['나오는 곳', K.crystal.from], ['가치', `그 운석 몫의 ${Math.round(K.crystal.share*100)}%`], ['사라짐', `${Math.round(ORE.life*1.4)}초`], ['운반', '채굴기 드론만']], c => drawOreIcon(c, 'crystal'));
+    ORE.tiers.forEach((O, i) => item(O.col, `${i + 1}등급 · ${O.ko}`, O.en, `${O.from}에서 나와요.`,
+      [['가치', `×${O.mul}`], ['사라짐', `${Math.round(ORE.life*(1 + i*.1))}초`], ['운반', i < ORE.base.tier ? '모든 드론' : '채굴기 드론만']], c => drawOreIcon(c, i + 1)));
+    const deeper = document.createElement('p'); deeper.className = 'cx-count'; deeper.textContent = '깊은 섹터일수록 광석이 한 등급 위로 나올 때가 많아져요';
+    list.appendChild(deeper);
   } else if (tab === 'cores'){
     const note = document.createElement('div'); note.className = 'cx-note';
     note.innerHTML = `<p><b>에너지 코어</b> 엘리트와 보스가 떨궈요. 코어마다 등급·속성·옵션이 있고, 옵션은 정해진 범위 안에서 무작위로 붙어요.</p>
@@ -98,7 +98,7 @@ function render(){
     list.appendChild(note);
     section('등급');
     const gl = document.createElement('dl'); gl.className = 'cx-stats cx-flat';
-    gl.innerHTML = Object.values(GRADES).map(g => `<div><dt style="color:rgb(${g.col})">${g.ko} · ${g.en}</dt><dd>${g === GRADES.named ? '보스 전용 · 고정 옵션 + 1' : `옵션 ${g.n}개${g.lo ? ' · 범위 위쪽 절반' : ''} · ${g.w}%`}</dd></div>`).join('');
+    gl.innerHTML = Object.values(GRADES).map(g => `<div><dt style="color:rgb(${g.col})">${g.ko} · ${g.en}</dt><dd>${g === GRADES.named ? '보스 전용 · 고정 옵션 + 1' : `옵션 ${g.n}개${g.lo ? ' · 범위 위쪽 절반' : g.hi < 1 ? ' · 범위 아래쪽 절반' : ''} · ${g.w}%`}</dd></div>`).join('');
     list.appendChild(gl);
     section('속성');
     const el = document.createElement('p'); el.className = 'cx-els';

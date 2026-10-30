@@ -16,6 +16,13 @@ import { openCodex } from './codex.js';
 import { drawMiners, drawOres, resetMining, sweepOres, updMining } from './mining.js';
 import { autoFitCores, openCoreDialog, resetCoreUi } from './coreui.js';
 import { closeArmory, openArmory } from './armory.js';
+import { resetTipUi, tip, updTips } from './tips.js';
+import { OPTS, openOptions } from './options.js';
+import { clearSave, readSave, writeSave } from './save.js';
+import { getFortLv, setFortLv } from './cards.js';
+import { recompute } from './turrets.js';
+import { bumpUid } from './cores.js';
+import { SECTORS, sectorOf } from './data.js';
 import { isMuted, setMuted, sfx } from './sfx.js';
 
 // test hooks: ?auto=1 picks cards by itself, ?speed=4 runs faster, ?wave=12 starts later, ?view=full locks the view
@@ -36,10 +43,12 @@ function setView(mode, animate){
   if (animate){ startCamera(from); sfx.view(); const M = MODES[mode]; G.banner = { title:`${M.en}`, sub:`시야 확장 · ${M.ko} 방어 · 포탑 자리 ${M.pads}개 · 새 포탑 1개`, warn:false }; G.bannerT = 2.6; G.bonusPick = true; }
 }
 // run setup: start = first wave, view = locked view or null for automatic, freePicks = cards handed out for skipped waves
-function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoPicks = !!AUTO, bossTest = !!QS_BOSS){
-  enemies.length = 0; fx.length = 0; parts.length = 0; resetTurrets(); resetCards(); resetMining(); resetCoreUi(); closeArmory();
+// testRun: bots, URL test options, stage select and boss test are never saved
+const QS_TEST = !!(AUTO || QS.get('wave') || QS.get('view') || QS.get('boss'));
+function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoPicks = !!AUTO, bossTest = !!QS_BOSS, testRun = QS_TEST){
+  enemies.length = 0; fx.length = 0; parts.length = 0; resetTurrets(); resetCards(); resetMining(); resetCoreUi(); closeArmory(); resetTipUi();
   Object.assign(G, { phase:'wave', wave:0, paused:false, picking:false, hp:FORT.hp, hpMax:FORT.hp, regen:0, hitT:0,
-    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, swallowed:false, bossTest, god:G.god || false, evoQueue:[], hitStop:0, pickQueue:0, bonusPick:false, cores:[], coreQueue:0, magnet:ORE.magnet });
+    energy:0, picks:0, need:needFor(0), energyMul:1, shatter:0, kills:0, runTime:0, banner:null, bannerT:0, viewLock:view, swallowed:false, bossTest, testRun, savedWave:0, menu:false, god:G.god || false, evoQueue:[], hitStop:0, pickQueue:0, bonusPick:false, cores:[], coreQueue:0, magnet:ORE.magnet });
   G.wave = start; setView(wantView(), false);
   addTurret('gatling');
   hud.over.hidden = true; hud.pausebox.hidden = true;
@@ -54,6 +63,29 @@ function newRun(start = START_WAVE, view = QS_VIEW, freePicks = start > 1, autoP
     }
     else G.pickQueue = start;
   }
+  if (start === 1 && !testRun) tip('start');
+}
+
+/* ----- save and continue: a checkpoint at the start of each wave ----- */
+const canSave = () => !G.testRun && !G.god && !AUTO;
+function snapshot(){
+  return { wave:G.wave,
+    G:{ hp:G.hp, hpMax:G.hpMax, regen:G.regen, energy:G.energy, picks:G.picks, need:G.need, energyMul:G.energyMul, magnet:G.magnet, kills:G.kills, runTime:G.runTime },
+    fort:getFortLv(), cores:G.cores,
+    turrets:turrets.map(t => ({ type:t.type, m:t.m, lv:t.lv, evo:t.evo || null, linkSel:t.linkSel || null, cores:t.cores })) };
+}
+function continueRun(sv){
+  newRun(sv.wave, null, false, false, false, false);
+  resetTurrets(); G.evoQueue = [];
+  let maxId = 0;
+  for (const st of sv.turrets){
+    const t = addTurret(st.type, st.m); if (!t) continue;
+    t.lv = { ...st.lv }; t.evo = st.evo || undefined; t.linkSel = st.linkSel || null;
+    t.cores = st.cores.map(c => ({ ...c, sync:0 })); for (const c of t.cores) maxId = Math.max(maxId, c.id);
+    recompute(t);
+  }
+  G.cores = sv.cores.map(c => ({ ...c, sync:0 })); for (const c of G.cores) maxId = Math.max(maxId, c.id);
+  bumpUid(maxId); Object.assign(G, sv.G); setFortLv(sv.fort); G.savedWave = sv.wave;
 }
 
 // bots: keep choosing while a dialog is up (a choice can open the next one straight away)
@@ -61,6 +93,7 @@ function autoChoose(){ for (let i = 0; i < 6 && G.picking && AUTO; i++) choose(A
 function update(dt){
   if (G.god && !G.swallowed) G.hp = G.hpMax;
   updWaves(dt);
+  if (G.phase === 'wave' && G.wave !== G.savedWave && canSave()){ G.savedWave = G.wave; writeSave(snapshot()); }
   if (wantView() !== V.mode) setView(wantView(), true);
   updRocks(dt);
   updTurrets(dt);
@@ -107,7 +140,7 @@ let shown = {};
 function drawHud(){
   const set = (k, v, f) => { if (shown[k] !== v){ shown[k] = v; f(v); } };
   // vignette: a red flash when the shield is hit, a heartbeat below 30% fortress
-  let vig = G.hitT*.55;
+  let vig = G.hitT*.55*OPTS.flash;
   if (G.hp > 0 && G.hp < G.hpMax*.3 && G.phase === 'wave'){
     const ph = (G.runTime % 1.1)/1.1, beat = Math.exp(-ph*12) + (ph > .2 ? .7*Math.exp(-(ph - .2)*12) : 0);
     vig = Math.max(vig, .25 + .45*beat*(1 - G.hp/(G.hpMax*.3))*.8 + .1);
@@ -140,6 +173,7 @@ function buildList(){
   }).join('');
 }
 function endRun(win){
+  if (!G.testRun) clearSave();
   const m = Math.floor(G.runTime/60), s = Math.floor(G.runTime % 60);
   hud.over.querySelector('h2').textContent = win ? 'EARTH HOLDS' : G.swallowed ? 'SWALLOWED' : 'FORTRESS DOWN';
   hud.over.querySelector('.osub').textContent = win ? `30웨이브를 모두 막았어요` : G.swallowed ? '지구가 블랙홀에 삼켜졌어요' : `웨이브 ${G.wave}에서 무너졌어요`;
@@ -167,12 +201,12 @@ $('stgrid').addEventListener('click', e => { const b = e.target.closest('button'
 for (const [id, key] of [['stview', 'view'], ['stcards', 'cards']]) $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; stage[key] = b.dataset.v;
   $(id).querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', x === b)); });
 $('stboss').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
-  G.god = $('stgod').checked; setPaused(false); $('stage').open = false; newRun(+b.dataset.w, null, true, true, true); });
+  G.god = $('stgod').checked; setPaused(false); $('stage').open = false; newRun(+b.dataset.w, null, true, true, true, true); });
 $('stgod').addEventListener('change', e => { G.god = e.target.checked; });
 $('stgo').addEventListener('click', () => {
   G.god = $('stgod').checked;
   setPaused(false); $('stage').open = false;
-  newRun(stage.wave, stage.view || null, stage.cards !== 'none', stage.cards === 'auto');
+  newRun(stage.wave, stage.view || null, stage.cards !== 'none', stage.cards === 'auto', false, true);
 });
 $('codexbtn').addEventListener('click', () => openCodex());
 const muteBtn = $('mute');
@@ -180,16 +214,18 @@ const showMute = () => { muteBtn.setAttribute('aria-pressed', isMuted()); muteBt
 muteBtn.addEventListener('click', () => { setMuted(!isMuted()); showMute(); }); showMute();
 $('pcodex').addEventListener('click', () => openCodex());
 $('pcores').addEventListener('click', () => { setPaused(false); openArmory(); });
+$('popts').addEventListener('click', () => openOptions());
+document.addEventListener('mute-changed', () => showMute());
 $('coresbtn').addEventListener('click', () => openArmory());
 // tap a turret on the field to open its slots
 cv.addEventListener('pointerup', e => {
-  if (G.paused || G.picking || G.coreOpen || G.armoryOpen || G.codexOpen || G.phase === 'over') return;
+  if (G.paused || G.picking || G.coreOpen || G.armoryOpen || G.codexOpen || G.tipOpen || G.optsOpen || G.menu || G.phase === 'over') return;
   const x = e.clientX/ZOOM - V.ox, y = e.clientY/ZOOM;
   let best = null, bd = 46; for (const t of turrets){ const d = Math.hypot(t.px - x, t.py - y); if (d < bd){ bd = d; best = t; } }
   if (best) openArmory(best);
 });
 addEventListener('keydown', e => {
-  if (G.codexOpen || G.coreOpen || G.armoryOpen) return;
+  if (G.codexOpen || G.coreOpen || G.armoryOpen || G.tipOpen || G.optsOpen || G.menu) return;
   if (e.key === 'Escape' || e.key === 'p') setPaused(!G.paused);
   if (e.key === 'c') openCodex();
   if (e.key === 'm') muteBtn.click();
@@ -203,7 +239,8 @@ function frame(now){
   const dt = Math.max(0, Math.min(.033, (now - last)/1000)); last = now;   // the first rAF stamp can predate `last`
   resetJag();
   autoChoose();
-  const running = !G.paused && !G.picking && !G.coreOpen && !G.armoryOpen && !G.codexOpen && (G.phase === 'wave' || G.phase === 'break');
+  updTips(!G.paused && !G.picking && !G.coreOpen && !G.armoryOpen && !G.codexOpen && !G.optsOpen && !G.menu && (G.phase === 'wave' || G.phase === 'break') && !AUTO);
+  const running = !G.paused && !G.picking && !G.coreOpen && !G.armoryOpen && !G.codexOpen && !G.tipOpen && !G.optsOpen && !G.menu && (G.phase === 'wave' || G.phase === 'break');
   if (running && G.hitStop > 0){ G.hitStop -= dt; tickClock(dt*.1); }      // a beat of stillness on big kills and hits
   else if (running){
     const steps = TEST_SPEED || G.speed;
@@ -217,6 +254,17 @@ function frame(now){
 setMAXP(innerWidth < 700 ? 900 : 2600);
 fitView();
 newRun(QS_BOSS || START_WAVE);
+// a saved run waiting: offer to pick it up
+{ const sv = !QS_TEST && readSave();
+  if (sv){
+    G.menu = true; const T = $('title'); T.hidden = false;
+    T.querySelector('.ti-sub').textContent = `웨이브 ${sv.wave} · ${SECTORS[sectorOf(sv.wave)].ko} · 포탑 ${sv.turrets.length}개 · ${new Date(sv.at).toLocaleString('ko-KR', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' })} 저장`;
+    $('ticont').addEventListener('click', () => { T.hidden = true; continueRun(sv); });
+    $('tinew').addEventListener('click', () => { T.hidden = true; clearSave(); newRun(); });
+    $('tiopts').addEventListener('click', () => openOptions());
+    $('ticont').focus({ preventScroll:true });
+  }
+}
 requestAnimationFrame(frame);
 // for tests and tinkering in the console
 window.__td = { G, enemies, turrets, shots, ROCK, TURRET, WAVES, V, addTurret, newRun, resetTurrets, spawnRock, hurt, rollCore, namedCore };

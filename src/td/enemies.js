@@ -12,6 +12,7 @@ import { discover } from './codex.js';
 import { dropLoot } from './mining.js';
 import { SRC } from './src.js';
 import { sfx } from './sfx.js';
+import { tip } from './tips.js';
 import { afterHurt, armorOf, drawCustom, drawCustomIcon, filterHurt, onKill, onSpawn, updSpecial } from './bosses.js';
 
 const SPR = 2;                       // sprite pixels per world unit
@@ -30,8 +31,8 @@ export function spawnRock(type, x, y, opts = {}){
   // every rock heads for a point on the shield; it picks the side of Earth it came from
   aimAt(e, opts.aim ?? angC(x, y) + rand(-.25, .25));
   // comets: the trajectory is shown for a moment first, then they come in at full speed
-  if (T.comet){ const dx = e.tx - x, dy = e.ty - y, d = Math.hypot(dx, dy); e.vx = dx/d*e.speed; e.vy = dy/d*e.speed; e.rot = Math.atan2(e.vy, e.vx); e.spin = 0; e.warnT = 1.1; sfx.cometWarn(); }
-  enemies.push(e); onSpawn(e); discover(type); return e;
+  if (T.comet){ const dx = e.tx - x, dy = e.ty - y, d = Math.hypot(dx, dy); e.vx = dx/d*e.speed; e.vy = dy/d*e.speed; e.rot = Math.atan2(e.vy, e.vx); e.spin = 0; e.warnT = 1.1; sfx.cometWarn(); tip('comet'); }
+  enemies.push(e); onSpawn(e); discover(type); if (T.boss) tip(T.blackhole ? 'blackhole' : 'boss'); return e;
 }
 
 // all damage goes through here: armour, the cryo "shatter" bonus, numbers for big hits

@@ -11,31 +11,35 @@ import { V, distC } from './view.js';
 import { neonCircle, neonPath, rgb, ringFx } from './fx.js';
 import { turrets } from './turrets.js';
 import { sfx } from './sfx.js';
+import { tip } from './tips.js';
 import { pullOre } from './bosses.js';
 
 export const ores = [];
 export const miners = [];
-const ORE_COL = ORE.kinds.ore.col, CRY_COL = ORE.kinds.crystal.col;
+const ORE_COL = ORE.tiers[0].col;
+import { sectorOf } from './data.js';
 
 export function resetMining(){ ores.length = 0; miners.length = 0; }
 
 // called when a rock breaks
 export function dropLoot(e, mul = 1){
   const total = e.T.energy*ORE.yieldMul*mul, n = Math.max(1, Math.min(e.T.boss ? 10 : 5, Math.ceil(e.T.energy/2.5)));
-  // armoured rocks, elites and bosses give half their worth as crystal: fewer, richer pieces only miners can carry
-  const rich = e.T.armor || e.T.elite || e.T.boss, nc = rich ? Math.max(1, Math.round(n*.4)) : 0, crys = rich ? total*ORE.kinds.crystal.share : 0;
-  const put = (kind, v) => { const a = rand(0, TAU), sp = rand(10, 40) + (e.T.boss ? 60 : 0);
-    ores.push({ kind, x:e.x + Math.cos(a)*e.r*.3, y:e.y + Math.sin(a)*e.r*.3, vx:(e.vx || 0)*.2 + Math.cos(a)*sp, vy:(e.vy || 0)*.2 + Math.sin(a)*sp, v, t:0, life:ORE.life*(kind === 'crystal' ? 1.4 : 1), rot:rand(0, TAU), claim:null }); };
-  for (let i = 0; i < n; i++) put('ore', (total - crys)/n);
-  for (let i = 0; i < nc; i++) put('crystal', crys/nc);
+  // the rock decides the usual grade; deeper sectors bump pieces up a grade now and then
+  const T = e.T, base = T.boss ? 5 : T.elite ? 4 : (T.comet || T.lens) ? 3 : (T.armor || T.shell) ? 2 : 1, bump = sectorOf(G.wave || 1)*.08;
+  for (let i = 0; i < n; i++){
+    const tier = Math.min(5, base + (Math.random() < bump ? 1 : 0)), a = rand(0, TAU), sp = rand(10, 40) + (T.boss ? 60 : 0);
+    ores.push({ kind:'ore', tier, x:e.x + Math.cos(a)*e.r*.3, y:e.y + Math.sin(a)*e.r*.3, vx:(e.vx || 0)*.2 + Math.cos(a)*sp, vy:(e.vy || 0)*.2 + Math.sin(a)*sp,
+      v:total/n*ORE.tiers[tier - 1].mul, t:0, life:ORE.life*(1 + (tier - 1)*.1), rot:rand(0, TAU), claim:null });
+  }
   const cores = dropFor(e);
+  tip('ore');
   for (const c of cores) ores.push({ kind:'core', x:e.x + rand(-10, 10), y:e.y + rand(-10, 10), vx:rand(-30, 30), vy:rand(-30, 30), v:0, core:c, t:0, life:ORE.coreLife, rot:0, claim:null });
 }
 
 // bring something home: ore → energy, cores → the store (and offer to fit them)
 function deposit(x, y, energy, cores){
   if (energy > 0){ G.energy += energy*G.energyMul; sprite(x, y, 14, ORE_COL, .8); sfx.ore(); }
-  if (cores.length) sfx.core();
+  if (cores.length){ sfx.core(); tip('core'); }
   for (const c of cores){ G.cores.push(c); G.coreQueue++; ringFx(x, y, 6, 50, .5, coreCol(c), 3); }
 }
 // the view changed: whatever is still floating is swept in
@@ -48,6 +52,7 @@ export function sweepOres(){
 }
 
 /* ----- drones: the fortress's own pair plus every miner turret's ----- */
+const canCarry = (s, o) => o.core ? !!s.cores : (o.tier || 1) <= s.tier;
 function homeOf(d){
   if (d.owner) return { x:d.owner.px, y:d.owner.py };
   const a = -Math.PI/2 + (d.i ? .14 : -.14); return { x:V.cx + Math.cos(a)*V.PR, y:V.cy + Math.sin(a)*V.PR };
@@ -63,7 +68,7 @@ function syncDrones(){
 function pickOre(d, s){
   let best = null, bs = 1e9;
   for (const o of ores){
-    if ((o.claim && o.claim !== d) || !s.kinds.includes(o.kind)) continue;
+    if ((o.claim && o.claim !== d) || !canCarry(s, o)) continue;
     if (distC(o.x, o.y) < V.SR + G.magnet) continue;              // the magnet will get it
     const left = o.life - o.t, dd = Math.hypot(o.x - d.x, o.y - d.y);
     if (dd/(s.speed*V.spd) > left) continue;                      // would burn up before we got there
@@ -88,9 +93,9 @@ function updDrone(d, dt){
       // scoop up everything in reach that this drone can carry, until the hold is full
       const r = s.scoop;
       for (let i = ores.length - 1; i >= 0 && d.cargo < s.cap; i--){
-        const o = ores[i]; if (!s.kinds.includes(o.kind) || Math.hypot(o.x - d.x, o.y - d.y) > r) continue;
+        const o = ores[i]; if (!canCarry(s, o) || Math.hypot(o.x - d.x, o.y - d.y) > r) continue;
         if (o.core) d.cores.push(o.core); else d.cargo += o.v*(1 + (s.yield || 0));
-        if (d.load.length < 5) d.load.push(o.kind);
+        if (d.load.length < 5) d.load.push(o.core ? 'core' : o.tier);
         ores.splice(i, 1);
       }
       sprite(d.x, d.y, r, ORE_COL, .25);
@@ -108,7 +113,7 @@ function updDrone(d, dt){
   // rocks swat drones out of the sky (and whatever they carried falls back out as ore)
   if (!s.armor) for (const e of enemies){
     if (e.dead || Math.hypot(e.x - d.x, e.y - d.y) > e.r + 5) continue;
-    if (d.cargo > 0) ores.push({ kind:'ore', x:d.x, y:d.y, vx:rand(-30, 30), vy:rand(-30, 30), v:d.cargo, t:0, life:ORE.life*.6, rot:0, claim:null });
+    if (d.cargo > 0) ores.push({ kind:'ore', tier:1, x:d.x, y:d.y, vx:rand(-30, 30), vy:rand(-30, 30), v:d.cargo, t:0, life:ORE.life*.6, rot:0, claim:null });
     for (const c of d.cores) ores.push({ kind:'core', x:d.x, y:d.y, vx:rand(-30, 30), vy:rand(-30, 30), v:0, core:c, t:0, life:ORE.coreLife, rot:0, claim:null });
     if (d.tgt) d.tgt.claim = null;
     d.cargo = 0; d.cores = []; d.load = []; d.tgt = null; d.state = 'down'; d.downT = 4;
@@ -145,13 +150,13 @@ export function drawOres(){
       sprite(o.x, o.y, 26, c, .35*blink); neonCircle(o.x, o.y, 15 + (time*20 % 10), c, 1, .4*blink);
       neonPath(() => { for (let k = 0; k < 6; k++){ const a = k/6*TAU + time; k ? ctx.lineTo(o.x + Math.cos(a)*r, o.y + Math.sin(a)*r) : ctx.moveTo(o.x + Math.cos(a)*r, o.y + Math.sin(a)*r); } ctx.closePath(); }, c, 1.4, blink);
       sprite(o.x, o.y, 4, [255,255,255], blink);
-      if (o.core.grade !== 'common') neonCircle(o.x, o.y, 11, gc, 1, .8*blink);
+      if (o.core.grade !== 'low' && o.core.grade !== 'lowest') neonCircle(o.x, o.y, 11, gc, 1, .8*blink);
       continue;
     }
-    const cry = o.kind === 'crystal', col = cry ? CRY_COL : ORE_COL, r = (cry ? 4 : 2.6) + Math.min(3, o.v*.4), ca = Math.cos(o.rot), sa = Math.sin(o.rot);
-    sprite(o.x, o.y, r*3, col, (cry ? .45 : .3)*blink);
-    neonPath(() => { ctx.moveTo(o.x + ca*r*1.6, o.y + sa*r*1.6); ctx.lineTo(o.x - sa*r, o.y + ca*r); ctx.lineTo(o.x - ca*r*1.6, o.y - sa*r*1.6); ctx.lineTo(o.x + sa*r, o.y - ca*r); ctx.closePath(); }, col, cry ? 1.3 : 1, .9*blink);
-    if (cry) sprite(o.x, o.y, 2, [255,255,255], blink);
+    const tr = o.tier || 1, col = ORE.tiers[tr - 1].col, r = 2.4 + tr*.5 + Math.min(2, o.v*.2), ca = Math.cos(o.rot), sa = Math.sin(o.rot);
+    sprite(o.x, o.y, r*3, col, (.25 + tr*.05)*blink);
+    neonPath(() => { ctx.moveTo(o.x + ca*r*1.6, o.y + sa*r*1.6); ctx.lineTo(o.x - sa*r, o.y + ca*r); ctx.lineTo(o.x - ca*r*1.6, o.y - sa*r*1.6); ctx.lineTo(o.x + sa*r, o.y - ca*r); ctx.closePath(); }, col, .9 + tr*.12, .9*blink);
+    if (tr >= 3) sprite(o.x, o.y, 1.5 + tr*.3, [255,255,255], blink);
   }
 }
 export function drawMiners(){
@@ -162,7 +167,7 @@ export function drawMiners(){
   }
 }
 // a little work drone, top-down, nose along +x: thruster, cargo bin (with what it carries), cab, two claws
-const KCOL = k => k === 'crystal' ? CRY_COL : k === 'core' ? ORE.kinds.core.col : ORE_COL;
+const KCOL = k => k === 'core' ? ORE.core.col : ORE.tiers[(k || 1) - 1].col;
 function rrect(x, y, w, h, r){ ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 function drawWorker(x, y, a, col, load, s, grab){
   ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.scale(s, s);
@@ -195,7 +200,7 @@ export function drawWorkerIcon(canvas, col, load = []){
 export function drawOreIcon(canvas, kind){
   const g = canvas.getContext('2d'), keep = ctx, c = canvas.width/2; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height);
   setCtx(g); g.globalCompositeOperation = 'lighter';
-  const r = canvas.width*(kind === 'crystal' ? .13 : .1), col = KCOL(kind);
+  const r = canvas.width*(.08 + (kind === 'core' ? 3 : kind)*.012), col = KCOL(kind);
   sprite(c, c, r*3.2, col, .4);
   neonPath(() => { ctx.moveTo(c + r*1.6, c); ctx.lineTo(c, c + r); ctx.lineTo(c - r*1.6, c); ctx.lineTo(c, c - r); ctx.closePath(); }, col, 3, 1);
   setCtx(keep);
@@ -206,6 +211,6 @@ export const coreIcon = (g, core, cx, cy, r) => {
   const hex = k => { g.beginPath(); for (let i = 0; i < 6; i++){ const a = i/6*TAU - Math.PI/2; g.lineTo(cx + Math.cos(a)*r*k, cy + Math.sin(a)*r*k); } g.closePath(); };
   hex(1); g.strokeStyle = rgb(c, .35); g.lineWidth = r*.4; g.stroke(); g.strokeStyle = `rgb(${c.map(v => Math.min(255, v + 80))})`; g.lineWidth = r*.12; g.stroke();
   // the grade shows as an outer frame (none for common)
-  if (core.grade !== 'common'){ hex(1.32); g.strokeStyle = rgb(gc, .9); g.lineWidth = r*.07; g.stroke(); if (core.grade === 'flawless' || core.grade === 'named'){ hex(1.48); g.strokeStyle = rgb(gc, .5); g.lineWidth = r*.05; g.stroke(); } }
+  if (core.grade !== 'low' && core.grade !== 'lowest'){ hex(1.32); g.strokeStyle = rgb(gc, .9); g.lineWidth = r*.07; g.stroke(); if (core.grade === 'highest' || core.grade === 'named'){ hex(1.48); g.strokeStyle = rgb(gc, .5); g.lineWidth = r*.05; g.stroke(); } }
   g.fillStyle = '#fff'; g.beginPath(); g.arc(cx, cy, r*.22, 0, TAU); g.fill(); g.restore();
 };

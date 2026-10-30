@@ -3,6 +3,7 @@ import { ENERGY, EVO, FORT_UPG, TURRET, UPG } from './data.js';
 import { G } from './state.js';
 import { V } from './view.js';
 import { sfx } from './sfx.js';
+import { tip } from './tips.js';
 import { addTurret, applyUpgrade, drawTurretIcon, evolve, levelOf, tierOf, turrets } from './turrets.js';
 import { TIERS } from './data.js';
 
@@ -10,6 +11,8 @@ const el = document.getElementById('pick'), row = el.querySelector('.pk-row');
 let options = [];
 export const needFor = picks => Math.round(ENERGY.first + picks*ENERGY.step*Math.pow(ENERGY.grow, picks));
 const fortLv = {};
+export const getFortLv = () => ({ ...fortLv });
+export function setFortLv(v){ for (const k in fortLv) delete fortLv[k]; Object.assign(fortLv, v); }
 export function resetCards(){ for (const k in fortLv) delete fortLv[k]; options = []; el.hidden = true; G.picking = false; }
 
 function pool(){
@@ -88,7 +91,7 @@ export function smartPick(){
 }
 export function choose(i){
   const o = options[i]; if (!o || !G.picking) return;
-  sfx.pick();
+  sfx.pick(); tip('card');
   if (o.kind === 'evo'){ evolve(o.t, o.e.id); el.hidden = true; G.picking = false; options = []; checkEnergy(); return; }
   if (o.kind === 'new') addTurret(o.type);
   else if (o.kind === 'up') applyUpgrade(o.t, o.u);

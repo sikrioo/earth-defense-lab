@@ -7,6 +7,7 @@ import { coreCol, linksOf } from './cores.js';
 import { SRC, setSrc } from './src.js';
 import { G, enemies, fx, shots } from './state.js';
 import { sfx } from './sfx.js';
+import { tip } from './tips.js';
 import { addShake } from '../core/lights.js';
 import { PW, V, distC, inWorld, threat } from './view.js';
 import { alive, chill, hitSpark, hurt, hurtArea, isChilled, targetable } from './enemies.js';
@@ -16,8 +17,8 @@ import { burst, explode, mixc, neonCircle, neonLine, neonPath, rgb, ringFx } fro
 export const turrets = [];
 export const turretAt = i => turrets.find(t => t.m === i);
 export function resetTurrets(){ turrets.length = 0; shots.length = 0; }
-export function addTurret(type){
-  const used = new Set(turrets.map(t => t.m)); const m = V.mounts.findIndex((_, i) => !used.has(i));
+export function addTurret(type, at = -1){
+  const used = new Set(turrets.map(t => t.m)); const m = at >= 0 && at < V.mounts.length && !used.has(at) ? at : V.mounts.findIndex((_, i) => !used.has(i));
   if (m < 0) return null;
   const T = TURRET[type], p = V.mounts[m];
   const t = { type, T, s:{ ...T.base }, lv:{}, cores:[], m, cd:rand(0, .4), ang:p.a, ramp:0, rampOn:null, drones:[], born:time };
@@ -51,6 +52,7 @@ export function applyUpgrade(t, up){
   ringFx(t.x, t.y, 6, 46, .45, t.T.col, 2);
   // a new tier: another core slot (offer waiting cores again); Mk III also opens the evolution choice
   if (tierOf(t) > before){
+    tip(tierOf(t) === 3 ? 'evo' : 'mk2');
     ringFx(t.x, t.y, 10, 90, .8, [255,255,255], 4); sprite(t.px, t.py, 60, t.T.col, .9);
     G.banner = { title:`${t.T.ko} MK ${['I', 'II', 'III'][tierOf(t) - 1]}`, sub:tierOf(t) === 3 ? '진화 경로를 고를 수 있어요 · 코어 슬롯 +1' : '코어 슬롯 +1', warn:false }; G.bannerT = 1.8;
     if (G.cores.length) G.coreQueue++;
