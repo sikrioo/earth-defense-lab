@@ -117,7 +117,7 @@ export const TURRET = {
     cons:'재사용 대기 4초 · 펼쳐지기까지 0.6초 · 폭풍이 겹쳐도 피해는 안 겹침 · 빠른 적은 금방 빠져나감',
     base:{ dps:55, radius:105, dur:3.5, every:4, range:640, delay:.6, slow:0, drift:0 } },
   miner:   { ko:'채굴기', en:'MINER', col:[130,240,150], role:'자원 · 채굴', desc:'채굴 드론을 띄워 부서진 운석의 광석을 실어 온다',
-    pros:['빠르고 많이 실어 와서 카드를 더 자주 받음', '모든 등급의 광석과 에너지 코어까지 운반 (요새 기본 드론은 규산염·철광석만)'],
+    pros:['빠르고 많이 실어 와서 카드를 더 자주 받음', '모든 등급의 광석과 에너지 코어까지 운반 (요새 기본 드론은 규석·빙정만)'],
     cons:'공격을 전혀 안 함: 발판 하나만큼 화력이 줄어듦 · 드론이 운석에 부딪히면 격추돼 4초 뒤 복귀',
     base:{ drones:2, speed:340, scoop:44, cap:10, yield:.15, armor:0, tier:5, cores:1 } },
 };
@@ -127,12 +127,13 @@ export const TURRET = {
 // miner drones carry everything, cores included. Cores also drift slowly toward Earth so the magnet gets them in the end.
 export const ORE = { yieldMul:1.3, life:12, coreLife:45, magnet:46, coreDrift:24,
   tiers:[
-    { ko:'규산염',   en:'SILICATE', col:[150,235,215], mul:1,   from:'모든 운석' },
-    { ko:'철광석',   en:'IRON',     col:[255,170,110], mul:1.6, from:'철 운석 · 빙하 · 깊은 섹터의 운석' },
-    { ko:'니켈',     en:'NICKEL',   col:[200,225,255], mul:2.4, from:'혜성 · 얼음 혜성 · 렌즈' },
-    { ko:'자수정',   en:'AMETHYST', col:[200,140,255], mul:3.5, from:'수정 운석(엘리트) · 플라즈마 섹터' },
-    { ko:'이리듐',   en:'IRIDIUM',  col:[255,220,120], mul:5,   from:'보스' },
+    { ko:'규석',   en:'SILICATE',      col:[150,235,215], mul:1,   from:'모든 운석', real:'돌로 된 소행성 대부분을 이루는 규산염 광물(감람석·휘석)' },
+    { ko:'빙정',   en:'ICE',           col:[190,225,255], mul:1.6, from:'혜성 · 얼음 혜성 · 빙하', real:'혜성과 소행성의 물얼음. 우주에서는 물·산소·연료가 되는 귀한 자원' },
+    { ko:'운철',   en:'METEORIC IRON', col:[255,170,110], mul:2.4, from:'철 운석 · 중력 렌즈', real:'산화되지 않은 철-니켈 합금. 철운석과 금속형 소행성' },
+    { ko:'성강석', en:'LONSDALEITE',   col:[200,140,255], mul:3.5, from:'수정 운석(엘리트) · 플라즈마 섹터', real:'운석 충돌 때 생기는 육방정 다이아몬드(론스데일라이트)' },
+    { ko:'성핵석', en:'STAR CORE',     col:[255,220,120], mul:5,   from:'보스', real:'가상의 광물: 사라진 목성과 토성의 핵에서 흘러나온 전설의 결정' },
   ],
+
   core:{ ko:'에너지 코어', col:[255,220,140] },
   base:{ drones:2, speed:230, scoop:24, cap:3, yield:0, armor:0, tier:2, cores:0 } };   // the fortress's own two slow drones
 // Energy cores work like jewels: each has a grade, an element and random affixes rolled inside fixed ranges.

@@ -83,11 +83,11 @@ function render(){
     list.appendChild(note);
     section('채굴 드론');
     const M = TURRET.miner;
-    item([200,215,235], '요새 기본 드론', 'BASE', '느리고 조금씩 실어 오는 요새의 일꾼 2대. 규산염과 철광석(1~2등급)만 나를 수 있어요.', droneRows(ORE.base), c => drawWorkerIcon(c, [200,215,235], [1, 2, 1]));
+    item([200,215,235], '요새 기본 드론', 'BASE', '느리고 조금씩 실어 오는 요새의 일꾼 2대. 규석과 빙정(1~2등급)만 나를 수 있어요.', droneRows(ORE.base), c => drawWorkerIcon(c, [200,215,235], [1, 2, 1]));
     item(M.col, '채굴기 드론', 'MINER', `채굴기 포탑 하나에 딸린 드론. 빠르고 많이 싣고, 모든 등급의 광석과 에너지 코어까지 날라요. 정제기로 실어 온 광석 가치도 올려요.`, droneRows(M.base), c => drawWorkerIcon(c, M.col, [4, 2, 'core', 5]),
       `<details><summary>강화 카드 ${UPG.miner.length}종</summary><ul class="cx-ups">${UPG.miner.map(u => `<li${u.max === 1 ? ' class="core"' : ''}><b>${u.ko}</b><span>${u.d}</span><em>${u.max === 1 ? '핵심' : '최대 ' + u.max}</em></li>`).join('')}</ul></details>`);
     section('광물');
-    ORE.tiers.forEach((O, i) => item(O.col, `${i + 1}등급 · ${O.ko}`, O.en, `${O.from}에서 나와요.`,
+    ORE.tiers.forEach((O, i) => item(O.col, `${i + 1}등급 · ${O.ko}`, O.en, `${O.real}. ${O.from}에서 나와요.`,
       [['가치', `×${O.mul}`], ['사라짐', `${Math.round(ORE.life*(1 + i*.1))}초`], ['운반', i < ORE.base.tier ? '모든 드론' : '채굴기 드론만']], c => drawOreIcon(c, i + 1)));
     const deeper = document.createElement('p'); deeper.className = 'cx-count'; deeper.textContent = '깊은 섹터일수록 광석이 한 등급 위로 나올 때가 많아져요';
     list.appendChild(deeper);

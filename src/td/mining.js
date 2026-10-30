@@ -25,7 +25,7 @@ export function resetMining(){ ores.length = 0; miners.length = 0; }
 export function dropLoot(e, mul = 1){
   const total = e.T.energy*ORE.yieldMul*mul, n = Math.max(1, Math.min(e.T.boss ? 10 : 5, Math.ceil(e.T.energy/2.5)));
   // the rock decides the usual grade; deeper sectors bump pieces up a grade now and then
-  const T = e.T, base = T.boss ? 5 : T.elite ? 4 : (T.comet || T.lens) ? 3 : (T.armor || T.shell) ? 2 : 1, bump = sectorOf(G.wave || 1)*.08;
+  const T = e.T, base = T.boss ? 5 : T.elite ? 4 : (T.armor || T.lens) ? 3 : (T.comet || T.icy) ? 2 : 1, bump = sectorOf(G.wave || 1)*.08;
   for (let i = 0; i < n; i++){
     const tier = Math.min(5, base + (Math.random() < bump ? 1 : 0)), a = rand(0, TAU), sp = rand(10, 40) + (T.boss ? 60 : 0);
     ores.push({ kind:'ore', tier, x:e.x + Math.cos(a)*e.r*.3, y:e.y + Math.sin(a)*e.r*.3, vx:(e.vx || 0)*.2 + Math.cos(a)*sp, vy:(e.vy || 0)*.2 + Math.sin(a)*sp,
